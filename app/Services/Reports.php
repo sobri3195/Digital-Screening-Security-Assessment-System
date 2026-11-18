@@ -66,21 +66,29 @@ final class Reports
         $results = isset($report['result_snapshot']) ? json_decode($report['result_snapshot'], true, 512, JSON_THROW_ON_ERROR)
             : (in_array($report['state'], ['disetujui', 'arsip'], true) ? [] : self::results($report));
         if ($download) {
-            if (!class_exists(Dompdf::class)) {
-                throw new Http(503, 'Generator PDF belum terpasang. Jalankan Composer sesuai petunjuk instalasi.');
-            }
-            $options = new Options(['isRemoteEnabled' => false, 'isPhpEnabled' => false, 'isJavascriptEnabled' => false, 'chroot' => BASE . '/public']);
-            $pdf = new Dompdf($options);
-            $pdf->setPaper('A4');
-            ob_start();
-            require BASE . '/app/Views/document.php';
-            $pdf->loadHtml((string) ob_get_clean(), 'UTF-8');
-            $pdf->render();
-            $pdf->getCanvas()->page_text(475, 795, 'Halaman {PAGE_NUM} / {PAGE_COUNT}', 'Helvetica', 9, [0.2, 0.2, 0.2]);
-            audit((int) $user['id'], 'download', 'reports');
-            $pdf->stream('laporan-' . $id . '.pdf');
-            exit;
+            self::download(compact('report','institution','signatures','logo','results'), (int) $user['id']);
         }
         return compact('report', 'institution', 'signatures', 'logo', 'results');
+    }
+
+    public static function download(array $document, int $userId, string $module = 'reports'): never
+    {
+        ['report' => $report, 'institution' => $institution, 'signatures' => $signatures, 'logo' => $logo, 'results' => $results] = $document;
+        $download = true;
+        if (!class_exists(Dompdf::class)) {
+            throw new Http(503, 'Generator PDF belum terpasang. Jalankan Composer sesuai petunjuk instalasi.');
+        }
+        $options = new Options(['isRemoteEnabled' => false, 'isPhpEnabled' => false, 'isJavascriptEnabled' => false, 'chroot' => BASE . '/public']);
+        $pdf = new Dompdf($options);
+        $pdf->setPaper('A4');
+        ob_start();
+        require BASE . '/app/Views/document.php';
+        $pdf->loadHtml((string) ob_get_clean(), 'UTF-8');
+        $pdf->render();
+        $pdf->getCanvas()->page_text(475, 795, 'Halaman {PAGE_NUM} / {PAGE_COUNT}', 'Helvetica', 9, [0.2, 0.2, 0.2]);
+        audit($userId, 'download', $module);
+        $filename = $module === 'reports' ? 'laporan-' : 'laporan-intelijen-';
+        $pdf->stream($filename . $report['id'] . '.pdf');
+        exit;
     }
 }

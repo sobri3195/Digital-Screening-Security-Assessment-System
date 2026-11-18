@@ -1,0 +1,5 @@
+# Mode offline
+
+Pencarian, normalisasi, laporan, dashboard, dan telaah data yang telah tersimpan berjalan tanpa internet. Lihat waktu sinkronisasi terakhir sebelum memakai hasil untuk keputusan operasional. Nonaktifkan provider atau hentikan scheduler pada deployment terisolasi.
+
+Impor CSV atau paket JSON maksimum 4 MiB dan 2.000 baris ke katalog IOC. CSV memerlukan kolom `value`; opsional `category,severity,confidence,family,first_seen,last_seen,expires_at,reference,origin_provider`. Gunakan ISO 8601 dengan zona waktu eksplisit. Paket JSON menyertakan checksum SHA-256 payload base64 untuk mendeteksi kerusakan; keaslian berkas harus diperiksa melalui kanal tepercaya. Data impor ditandai provider Paket offline dan provenance bawaan tidak diverifikasi. Ekspor mendefang indikator dan mengecualikan URL yang fingerprint-nya mencakup query yang telah disunting. Ekspor menghasilkan maksimal 250 observasi per paket. Gunakan header `X-Sentinel-Next-After` sebagai parameter `after` untuk halaman berikutnya. Ekspor mencakup IOC, sementara CVE dan advisori yang sudah disimpan tersedia untuk baca dan laporan offline.

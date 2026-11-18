@@ -28,3 +28,7 @@ Jalankan `php tests/run.php` untuk unit checks dan ikuti [laporan pengujian](doc
 - [Laporan pengujian](docs/TEST_REPORT.md)
 - [Riwayat perubahan](docs/CHANGELOG.md)
 - [Roadmap](docs/ROADMAP.md)
+
+## Threat Intelligence
+
+Jalankan migrasi setelah memperbarui checkout. Menu Threat Intelligence menyediakan katalog lokal, pencarian indikator, antrean feed, dan laporan. Lihat [implementasi Fase 2](docs/PHASE_2_IMPLEMENTATION.md) untuk persyaratan provider, worker, pengujian, dan batasan.

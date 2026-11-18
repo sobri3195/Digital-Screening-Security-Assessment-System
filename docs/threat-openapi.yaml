@@ -1,0 +1,107 @@
+openapi: 3.0.3
+info:
+  title: Sentinel Threat Intelligence
+  version: 2.0.0
+servers:
+  - url: /api/v1/threat-intelligence
+security:
+  - bearerAuth: []
+paths:
+  /health:
+    get:
+      summary: Status database dan pembaruan terakhir
+      description: Scope threat.dashboard.view
+      responses: &read
+        '200': {description: Respons JSON dengan properti data}
+        '401': {description: Token tidak valid}
+        '403': {description: Scope tidak tersedia}
+        '422': {description: Parameter tidak valid}
+        '429': {description: Batas permintaan}
+  /summary:
+    get:
+      summary: Statistik dan distribusi katalog
+      description: Scope threat.dashboard.view. Filter kind, source, severity, state, from, dan to.
+      responses: *read
+  /scan:
+    post:
+      summary: Pencocokan lokal satu indikator
+      description: Scope threat.scan.execute
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [indicator]
+              properties:
+                indicator: {type: string, maxLength: 2048}
+      responses:
+        '201': {description: Bukti, skor, dan ID hasil}
+        '401': {description: Token tidak valid}
+        '403': {description: Scope tidak tersedia}
+        '415': {description: Content-Type tidak valid}
+        '422': {description: Indikator tidak valid}
+        '429': {description: Batas permintaan}
+  /indicators:
+    get:
+      summary: Daftar IOC
+      description: Scope threat.indicator.view
+      parameters: &cursor
+        - name: after
+          in: query
+          schema: {type: integer, minimum: 1}
+          description: Cursor data.next_after dari halaman sebelumnya
+      responses: *read
+  /vulnerabilities:
+    get:
+      summary: Daftar CVE
+      description: Scope threat.vulnerability.view
+      parameters: *cursor
+      responses: *read
+  /advisories:
+    get:
+      summary: Daftar advisori
+      description: Scope threat.advisory.view
+      parameters: *cursor
+      responses: *read
+  /alerts:
+    get:
+      summary: Daftar alert
+      description: Scope threat.alert.manage
+      parameters: *cursor
+      responses: *read
+  /reports:
+    get:
+      summary: Daftar laporan disetujui
+      description: Scope threat.report.generate
+      parameters: *cursor
+      responses: *read
+  /providers:
+    get:
+      summary: Status dan jadwal provider
+      description: Scope threat.provider.manage
+      parameters: *cursor
+      responses: *read
+  /sync:
+    post:
+      summary: Antrekan sinkronisasi provider aktif
+      description: Scope threat.sync.execute
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [provider]
+              properties:
+                provider: {type: string, enum: [cisa, nvd, epss, urlhaus, threatfox, malwarebazaar]}
+      responses:
+        '202': {description: Job diterima}
+        '401': {description: Token tidak valid}
+        '403': {description: Scope tidak tersedia}
+        '415': {description: Content-Type tidak valid}
+        '422': {description: Provider nonaktif atau belum dikonfigurasi}
+        '429': {description: Batas permintaan}
+components:
+  securitySchemes:
+    bearerAuth: {type: http, scheme: bearer}

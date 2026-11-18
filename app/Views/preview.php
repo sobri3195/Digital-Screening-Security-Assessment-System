@@ -2,7 +2,7 @@
     <h1>Pratinjau Laporan</h1>
     <div class="actions">
         <button id="print" type="button" class="btn btn-outline-secondary">Cetak</button>
-        <a class="btn btn-primary" href="/reports/<?= escape($data['report']['id']) ?>/pdf">Unduh PDF</a>
+        <a class="btn btn-primary" href="<?= escape($data['pdf_url'] ?? '/reports/' . $data['report']['id'] . '/pdf') ?>">Unduh PDF</a>
     </div>
 </div>
 <?php
