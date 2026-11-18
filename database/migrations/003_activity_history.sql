@@ -1,0 +1,9 @@
+CREATE TABLE activity_history (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    activity_id INT UNSIGNED NOT NULL,
+    user_id INT UNSIGNED NOT NULL,
+    notes TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(activity_id) REFERENCES activities(id) ON DELETE CASCADE,
+    FOREIGN KEY(user_id) REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
