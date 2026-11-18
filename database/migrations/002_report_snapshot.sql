@@ -1,0 +1,2 @@
+ALTER TABLE reports ADD COLUMN result_snapshot MEDIUMTEXT NULL;
+ALTER TABLE system_settings MODIFY COLUMN value MEDIUMTEXT;

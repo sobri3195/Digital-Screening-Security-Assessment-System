@@ -1,0 +1,115 @@
+openapi: 3.0.3
+info:
+  title: PUSKESAU SENTINEL
+  version: 1.0.0
+servers:
+  - url: /api/v1
+paths:
+  /health:
+    get:
+      summary: Periksa status basis data
+      responses:
+        '200':
+          description: Basis data terhubung
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, version]
+                properties:
+                  status: {type: string}
+                  version: {type: string}
+  /auth/token:
+    post:
+      summary: Tukarkan kredensial klien dengan token sementara
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [client_id, client_secret]
+              properties:
+                client_id: {type: integer, minimum: 1}
+                client_secret: {type: string, format: password, minLength: 64, maxLength: 64}
+      responses:
+        '200':
+          description: Token diterbitkan
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [access_token, token_type, expires_in]
+                properties:
+                  access_token: {type: string}
+                  token_type: {type: string, enum: [Bearer]}
+                  expires_in: {type: integer}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '422': {$ref: '#/components/responses/Invalid'}
+        '429': {$ref: '#/components/responses/Limited'}
+  /assets:
+    get:
+      summary: Aset institusi
+      description: Memerlukan assets.read
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/After'}]
+      responses: &readResponses
+        '200': {$ref: '#/components/responses/Page'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '422': {$ref: '#/components/responses/Invalid'}
+        '429': {$ref: '#/components/responses/Limited'}
+  /inspections:
+    get:
+      summary: Jadwal pemeriksaan
+      description: Memerlukan inspections.read
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/After'}]
+      responses: *readResponses
+  /checklists:
+    get:
+      summary: Checklist aset
+      description: Memerlukan checklists.read
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/After'}]
+      responses: *readResponses
+  /findings:
+    get:
+      summary: Temuan teknis
+      description: Memerlukan findings.read
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/After'}]
+      responses: *readResponses
+  /reports:
+    get:
+      summary: Laporan yang telah disetujui
+      description: Memerlukan reports.read
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/After'}]
+      responses: *readResponses
+components:
+  securitySchemes:
+    bearerAuth: {type: http, scheme: bearer}
+  parameters:
+    After:
+      name: after
+      in: query
+      schema: {type: integer, minimum: 0}
+      description: ID entri terakhir di halaman sebelumnya
+  responses:
+    Page:
+      description: Maksimal 100 entri
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data, next_after]
+            properties:
+              data:
+                type: array
+                items: {type: object}
+              next_after: {type: integer, nullable: true}
+    Unauthorized: {description: Kredensial tidak valid}
+    Forbidden: {description: Scope tidak diizinkan}
+    Invalid: {description: Masukan tidak valid}
+    Limited: {description: Batas permintaan tercapai}
