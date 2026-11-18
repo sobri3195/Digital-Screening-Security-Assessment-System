@@ -249,3 +249,29 @@ def test_version_matching_requires_vendor_product_and_range(db, tmp_path):
         db, [Product(vendor="Another vendor", name="TEST App", version="1.9")]
     ).payload["candidates"]
     assert intelligence.family_or_advisory(db, "CVE-2099-12345")["advisories"]
+
+
+def test_health_uses_the_explicit_https_origin_and_no_inspection_payload(monkeypatch):
+    import httpx
+    from sentinel_inspector.workflow import api_health
+
+    requests = []
+    client = httpx.Client
+
+    def inspect_request(request):
+        requests.append(request)
+        return httpx.Response(200, json={"status": "ok", "version": "test-only"})
+
+    def make_client(**kwargs):
+        assert kwargs["follow_redirects"] is False
+        assert kwargs.get("trust_env", True) is True
+        return client(transport=httpx.MockTransport(inspect_request), **kwargs)
+
+    monkeypatch.setattr(httpx, "Client", make_client)
+    assert api_health("https://@sentinel.test/")["status"] == "tidak_tersedia"
+    assert api_health("http://sentinel.test/")["status"] == "tidak_tersedia"
+    assert api_health("https://sentinel.test/")["status"] == "ok"
+    assert len(requests) == 1
+    assert requests[0].method == "GET"
+    assert str(requests[0].url) == "https://sentinel.test/api/v1/health"
+    assert "authorization" not in requests[0].headers and not requests[0].content

@@ -163,15 +163,16 @@ def api_health(url: str) -> dict:
         if (
             endpoint.scheme != "https"
             or not endpoint.hostname
-            or endpoint.username
-            or endpoint.password
+            or endpoint.username is not None
+            or endpoint.password is not None
+            or endpoint.port == 0
             or endpoint.path not in ("", "/")
             or endpoint.query
             or endpoint.fragment
         ):
             raise ValueError
         target = f"https://{endpoint.netloc}/api/v1/health"
-        with httpx.Client(timeout=5, follow_redirects=False, trust_env=False) as client:
+        with httpx.Client(timeout=5, follow_redirects=False) as client:
             with client.stream("GET", target, headers={"Accept": "application/json"}) as response:
                 if response.status_code != 200:
                     return {"status": "tidak_tersedia", "http_status": response.status_code}
