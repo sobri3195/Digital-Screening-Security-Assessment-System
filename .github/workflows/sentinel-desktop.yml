@@ -1,0 +1,61 @@
+name: Device Inspector Windows
+
+on:
+  push:
+    branches: ["codex/sentinel-phase-4"]
+    paths:
+      - "desktop/**"
+      - ".github/workflows/sentinel-desktop.yml"
+  pull_request:
+    paths:
+      - "desktop/**"
+      - ".github/workflows/sentinel-desktop.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-2025
+    timeout-minutes: 30
+    env:
+      QT_QPA_PLATFORM: offscreen
+      SENTINEL_TEST_NATIVE_WINDOWS: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          architecture: x64
+      - name: Install Inno Setup where needed
+        shell: pwsh
+        run: |
+          $compiler = Join-Path ${env:ProgramFiles(x86)} "Inno Setup 6\ISCC.exe"
+          if (!(Test-Path -LiteralPath $compiler)) {
+            choco install innosetup --yes --no-progress
+            if ($LASTEXITCODE -ne 0) { throw "Inno Setup installation failed." }
+          }
+      - name: Run tests and build artifacts
+        shell: pwsh
+        run: ./desktop/packaging/build.ps1
+      - name: Launch the frozen executable and verify installer artifacts
+        shell: pwsh
+        run: |
+          $portable = "desktop/dist/PUSKESAU_SENTINEL_Advanced_Portable.exe"
+          $database = Join-Path $env:RUNNER_TEMP "sentinel-smoke.sqlite3"
+          $process = Start-Process -FilePath $portable -ArgumentList @("--db", ('"' + $database + '"'), "summary") -PassThru -Wait
+          if ($process.ExitCode -ne 0 -or !(Test-Path -LiteralPath $database)) { throw "Frozen executable smoke test failed." }
+          $manifest = Get-Content desktop/dist/release-manifest.json -Raw | ConvertFrom-Json
+          foreach ($file in $manifest.files) {
+            $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path "desktop/dist" $file.name)).Hash.ToLowerInvariant()
+            if ($hash -ne $file.sha256) { throw "The checksum does not match the manifest." }
+          }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: puskesau-sentinel-inspector-windows-x64
+          path: |
+            desktop/dist/*.exe
+            desktop/dist/release-manifest.json
+            desktop/dist/SHA256SUMS
+          if-no-files-found: error

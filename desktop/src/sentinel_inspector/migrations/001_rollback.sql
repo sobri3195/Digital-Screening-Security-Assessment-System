@@ -1,0 +1,17 @@
+DROP TABLE reports;
+DROP TABLE scoring_rules;
+DROP TABLE advisories;
+DROP TABLE affected_products;
+DROP TABLE vulnerabilities;
+DROP TABLE indicators;
+DROP TABLE intelligence_imports;
+DROP TABLE yara_rules;
+DROP TABLE usb_events;
+DROP TABLE audit_events;
+DROP TABLE findings;
+DROP TABLE technical_evidence;
+DROP TABLE inspection_tasks;
+DROP TABLE inspections;
+DROP TABLE inspection_authorizations;
+DROP TABLE assets;
+PRAGMA user_version=0;
