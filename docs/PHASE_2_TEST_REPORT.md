@@ -6,7 +6,9 @@ Lingkungan uji memakai PHP 8.4.24 dan MariaDB 11.8.6 dengan basis data disposabl
 | --- | --- |
 | Fase 1 | 11 pemeriksaan unit dan 124 permintaan HTTP lulus |
 | Fase 2 | 37 pemeriksaan unit/integrasi dan 62 pemeriksaan HTTP lulus |
-| CISA KEV | Sinkronisasi HTTPS nyata menerima dan menyimpan 1.782 CVE, 0 ditolak |
+| CISA KEV | Sinkronisasi HTTPS nyata menyimpan 1.782 CVE, 0 ditolak. Sinkronisasi ulang menemukan 1.782 entri tidak berubah. |
+| Chromium | Grafik, filter, pemeriksaan, panel bukti, tema, dan lebar layar seluler lulus |
+| Restore | Backup Fase 1 mempertahankan temuan aset Fase 2 yang masih kompatibel |
 | NVD dan FIRST EPSS | Parser fixture lulus. Akses langsung diblokir egress cloud (403) |
 | URLhaus, ThreatFox, MalwareBazaar | Parser fixture lulus. Pengujian langsung memerlukan kunci dan izin institusional |
 | BSSN, Kemenkes | Parser DOM/RSS dan impor advisori dengan fixture lulus. Pengambilan online belum tersedia |
