@@ -569,7 +569,7 @@ class InspectorWindow(QMainWindow):
         pane.addWidget(self.live)
         self.build_mobile_tab(tabs)
         self.build_results_tab(tabs)
-        self.asset_picker.currentIndexChanged.connect(self.mode_changed)
+        self.asset_picker.currentIndexChanged.connect(self.target_changed)
         self.mode.currentIndexChanged.connect(self.mode_changed)
 
     def build_mobile_tab(self, tabs):
@@ -640,6 +640,25 @@ class InspectorWindow(QMainWindow):
         ):
             row.addWidget(self.button(label, action))
         pane.addLayout(row)
+
+    def clear_session_inputs(self):
+        self.authorization.setChecked(False)
+        self.local_target.setChecked(False)
+        self.reference.clear()
+        self.scope.clear()
+        self.indicators.clear()
+        self.product.clear()
+        self.receive_files([])
+        for controls in self.mobile_inputs.values():
+            for choice, note in controls.values():
+                choice.setCurrentIndex(0)
+                note.clear()
+        for engine in self.engines.values():
+            engine.setChecked(False)
+
+    def target_changed(self):
+        self.clear_session_inputs()
+        self.mode_changed()
 
     def mode_changed(self):
         platform_id = self.asset_picker.currentData(Qt.ItemDataRole.UserRole + 1)
@@ -713,6 +732,7 @@ class InspectorWindow(QMainWindow):
         session = self.db.create(request)
         self.scan_cancel = Event()
         self.active_scan = True
+        self.asset_picker.setEnabled(False)
         self.start_button.setEnabled(False)
         self.authorization.setChecked(False)
         self.local_target.setChecked(False)
@@ -727,7 +747,9 @@ class InspectorWindow(QMainWindow):
 
         def done():
             self.active_scan = False
+            self.asset_picker.setEnabled(True)
             self.start_button.setEnabled(True)
+            self.clear_session_inputs()
             self.refresh()
             self.load_session(session)
 

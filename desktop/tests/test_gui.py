@@ -41,6 +41,8 @@ def test_qt_workflow_and_selected_file(db, tmp_path, monkeypatch):
         assert window.session_data["status"] == "review"
         assert window.progress.value() == 1
         assert window.evidence.rowCount() == 2
+        assert window.file_list.count() == 0
+        assert not window.scope.text() and not window.reference.text()
         window.show_evidence(0, 0)
         assert len(window.details.toPlainText()) > 50
         window.toggle_theme()
