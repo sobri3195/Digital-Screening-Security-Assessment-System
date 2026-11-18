@@ -32,3 +32,7 @@ Jalankan `php tests/run.php` untuk unit checks dan ikuti [laporan pengujian](doc
 ## Threat Intelligence
 
 Jalankan migrasi setelah memperbarui checkout. Menu Threat Intelligence menyediakan katalog lokal, pencarian indikator, antrean feed, dan laporan. Lihat [implementasi Fase 2](docs/PHASE_2_IMPLEMENTATION.md) untuk persyaratan provider, worker, pengujian, dan batasan.
+
+## Device Inspector
+
+Modul desktop Fase 4 tersedia di `desktop/`. Lihat [implementasi dan instalasi Device Inspector](docs/PHASE_4_IMPLEMENTATION.md) untuk pemeriksaan lokal, katalog offline, cakupan Windows, dan langkah membangun paket x64.

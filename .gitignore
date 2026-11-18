@@ -4,3 +4,11 @@
 /public/assets/vendor/*
 /storage/*
 !/storage/.gitkeep
+
+/desktop/.venv/
+/desktop/build/
+/desktop/dist/
+/desktop/*.spec
+*.egg-info/
+__pycache__/
+.pytest_cache/
