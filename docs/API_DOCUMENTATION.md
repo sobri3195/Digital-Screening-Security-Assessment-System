@@ -7,3 +7,5 @@ Referensi mesin tersedia di [openapi.yaml](openapi.yaml). Seluruh endpoint berad
 - `GET /assets`, `/inspections`, `/checklists`, `/findings`, dan `/reports` memerlukan `Authorization: Bearer …` dan scope `<nama endpoint>.read`. Hasil laporan terbatas pada laporan disetujui.
 - Kirim `?after=<ID>` untuk melanjutkan hingga `next_after` bernilai null. Maksimum satu halaman adalah 100 baris.
 - Status 401 berarti autentikasi gagal, 403 berarti scope tidak tersedia, 422 berarti masukan tidak valid, dan 429 berarti batas permintaan tercapai.
+
+API intelijen Fase 2 dijelaskan dalam [OpenAPI Threat Intelligence](threat-openapi.yaml). Gunakan token dari endpoint autentikasi yang sama dan daftarkan scope `threat.*` yang diperlukan pada klien.

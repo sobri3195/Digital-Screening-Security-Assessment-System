@@ -47,6 +47,7 @@ if ($command === 'migrate') {
     foreach (['Pembaruan sistem operasi', 'Pembaruan antivirus', 'Enkripsi penyimpanan', 'Screen lock', 'Firewall', 'Autentikasi dua faktor', 'Backup data', 'Pengaturan keamanan jaringan', 'Software sah', 'Perlindungan phishing'] as $item) {
         query('INSERT IGNORE INTO checklist_items (title) VALUES (?)', [$item]);
     }
+    Sentinel\Services\Threat\Setup::seed();
     echo "Migrasi dan konfigurasi awal selesai.\n";
     exit;
 }

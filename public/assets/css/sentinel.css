@@ -129,3 +129,6 @@ h3 { font-size: 1rem; font-weight: 650; margin-top: 1.25rem; }
 .dt-column-order::after { content: " ↕"; }
 [aria-sort="ascending"] .dt-column-order::after { content: " ↑"; }
 [aria-sort="descending"] .dt-column-order::after { content: " ↓"; }
+.ti-value { white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; }
+.ti-evidence { border: 1px solid var(--line); border-radius: 8px; padding: .7rem; margin: .4rem 0 .7rem; }
+.ti-evidence .detail-grid { margin-top: .7rem; }

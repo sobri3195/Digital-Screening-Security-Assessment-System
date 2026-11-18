@@ -4,6 +4,8 @@
     "type": "project",
     "require": {
         "php": "^8.3",
+        "ext-curl": "*",
+        "ext-intl": "*",
         "ext-pdo": "*",
         "ext-pdo_mysql": "*",
         "ext-fileinfo": "*",

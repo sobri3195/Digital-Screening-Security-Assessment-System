@@ -82,6 +82,15 @@ final class Backup
         }
         db()->beginTransaction();
         try {
+            // Phase 1 backup files exclude intel data. Preserve their locally linked assets or fail atomically.
+            $assetLinks = query('SELECT av.*, a.code AS current_code FROM ti_asset_vulnerabilities av
+                JOIN institutional_assets a ON a.id=av.asset_id FOR UPDATE')->fetchAll();
+            $restoredAssets = array_column($tables['institutional_assets'], 'code', 'id');
+            foreach ($assetLinks as $link) {
+                if (($restoredAssets[$link['asset_id']] ?? null) !== $link['current_code']) {
+                    throw new Http(422, 'Cadangan tidak mempertahankan aset yang dirujuk temuan intelijen.');
+                }
+            }
             foreach (array_reverse(self::TABLES) as $table) {
                 query("DELETE FROM `$table`");
             }
@@ -95,6 +104,11 @@ final class Backup
                     $parameters = implode(', ', array_fill(0, count($trusted), '?'));
                     query("INSERT INTO `$table` ($columns) VALUES ($parameters)", array_values($row));
                 }
+            }
+            foreach ($assetLinks as $link) {
+                unset($link['current_code']);
+                query('INSERT INTO ti_asset_vulnerabilities (id,asset_id,vulnerability_id,state,basis,due_on,assignee_id,note,updated_at)
+                    VALUES (?,?,?,?,?,?,?,?,?)', array_values($link));
             }
             audit($user, 'restore', 'backup');
             db()->commit();

@@ -4,6 +4,7 @@ declare(strict_types=1);
 use Sentinel\Controllers\Dashboard;
 use Sentinel\Controllers\Profile;
 use Sentinel\Controllers\Records;
+use Sentinel\Controllers\Threat;
 use Sentinel\Core\Auth;
 use Sentinel\Core\Http;
 use Sentinel\Services\Backup;
@@ -39,6 +40,12 @@ function dispatch_web(string $path, ?array $user, array $modules): array
             Http::redirect('/m/system_settings');
         }
         Branding::send();
+    }
+    if ($path === '/threat' && !$post) {
+        Http::redirect('/threat/dashboard');
+    }
+    if (str_starts_with($path, '/threat/')) {
+        return Threat::handle(substr($path, 8), $user, $post);
     }
     if ($path === '/profile') {
         return ['profile', ['title' => 'Profil Saya'] + Profile::handle($user)];

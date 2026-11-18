@@ -140,6 +140,13 @@ $columns = array_slice($fields, 0, 4, true);
             <dd><?= escape(str_replace('_', ' ', $data['extras']['results'][$item['id']] ?? 'belum_diperiksa')) ?></dd>
         <?php endforeach ?>
     </dl><?php endif ?>
+    <?php if ($special === 'file' && Auth::allows($user, 'threat.scan.execute') && !empty($record['sha256'])): ?>
+        <form method="post" action="/threat/hashes" class="actions">
+            <input type="hidden" name="_csrf" value="<?= $csrf ?>">
+            <input type="hidden" name="indicator" value="<?= escape($record['sha256']) ?>">
+            <button class="btn btn-outline-secondary" name="action" value="scan">Periksa SHA-256 pada katalog lokal</button>
+        </form>
+    <?php endif ?>
     <?php if ($special === 'report'): ?><a class="btn btn-outline-secondary" href="/reports/<?= escape($record['id']) ?>">Pratinjau laporan</a><?php endif ?>
     <?php if (isset($data['extras']['history'])): ?><h3>Riwayat</h3><ul class="activity-list">
         <?php foreach ($data['extras']['history'] as $event): ?><li><span><?= escape($event['notes']) ?></span><time><?= escape($event['created_at']) ?></time></li><?php endforeach ?>

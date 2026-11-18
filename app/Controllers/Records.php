@@ -213,7 +213,7 @@ final class Records
                     throw new Http(422, 'Pilih status klien.');
                 }
                 $scopes = array_values(array_filter(array_map('trim', explode(',', $data['scopes'] ?? ''))));
-                if (array_diff($scopes, Api::SCOPES)) {
+                if (array_diff($scopes, Api::scopes())) {
                     throw new Http(422, 'Scope API tidak dikenal.');
                 }
                 $data['scopes'] = implode(',', $scopes);

@@ -13,7 +13,10 @@ final class Api
         'findings' => ['security_findings', 'id, title, category, asset_id, severity, state'],
         'reports' => ['reports', 'id, code, title, source, inspected_on'],
     ];
-    public const SCOPES = ['assets.read', 'inspections.read', 'checklists.read', 'findings.read', 'reports.read'];
+    public static function scopes(): array
+    {
+        return ['assets.read','inspections.read','checklists.read','findings.read','reports.read',...((require BASE . '/config/threat.php')['permissions'])];
+    }
 
     public static function handle(string $path): never
     {
@@ -44,20 +47,16 @@ final class Api
             audit(null, 'token', 'api');
             Http::json(['access_token' => $token, 'token_type' => 'Bearer', 'expires_in' => 3600]);
         }
+        if (str_starts_with($path, 'threat-intelligence/')) {
+            ThreatApi::handle(substr($path, strlen('threat-intelligence/')), $method, self::client());
+        }
         if (!isset(self::ROUTES[$path])) {
             throw new Http(404, 'Endpoint tidak ditemukan.');
         }
         if ($method !== 'GET') {
             throw new Http(405, 'Metode tidak didukung.');
         }
-        $header = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
-        if (!preg_match('/^Bearer ([a-f0-9]{64})$/D', $header, $matches)) {
-            throw new Http(401, 'Token dibutuhkan.');
-        }
-        $client = query('SELECT c.id,c.scopes FROM api_tokens t JOIN api_clients c ON c.id=t.client_id WHERE t.id=? AND t.expires_at > NOW() AND c.active=1', [hash('sha256', $matches[1])])->fetch();
-        if (!$client) {
-            throw new Http(401, 'Token tidak valid atau telah kedaluwarsa.');
-        }
+        $client = self::client();
         if (!in_array($path . '.read', explode(',', $client['scopes'] ?? ''), true)) {
             audit(null, 'baca', 'api:' . $path, 'ditolak');
             throw new Http(403, 'Scope klien tidak mengizinkan endpoint ini.');
@@ -72,5 +71,18 @@ final class Api
         $rows = query("SELECT $columns FROM $table $where $condition id > ? ORDER BY id LIMIT 100", [$cursor ?: 0])->fetchAll();
         audit(null, 'baca', 'api:' . $path);
         Http::json(['data' => $rows, 'next_after' => count($rows) === 100 ? end($rows)['id'] : null]);
+    }
+
+    private static function client(): array
+    {
+        $header = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
+        if (!preg_match('/^Bearer ([a-f0-9]{64})$/D', $header, $matches)) {
+            throw new Http(401, 'Token dibutuhkan.');
+        }
+        $client = query('SELECT c.id,c.scopes FROM api_tokens t JOIN api_clients c ON c.id=t.client_id WHERE t.id=? AND t.expires_at > NOW() AND c.active=1', [hash('sha256', $matches[1])])->fetch();
+        if (!$client) {
+            throw new Http(401, 'Token tidak valid atau telah kedaluwarsa.');
+        }
+        return $client;
     }
 }
