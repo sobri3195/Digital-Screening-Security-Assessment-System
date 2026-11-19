@@ -1,0 +1,3 @@
+# Proteksi prompt injection
+
+Gateway mengisolasi instruksi sistem dari data. Teks dokumen hanya digunakan oleh pencarian dan embedding lokal. Model generatif menerima fakta dari skema yang sudah divalidasi, ID, kategori, nilai numerik dan daftar tindakan tetap. Model tidak memiliki tool shell, filesystem, database bebas, HTTP atau remote device. Respons generatif yang memuat field lain, ID di luar daftar, sitasi palsu, atau tanpa rujukan yang diberikan ditolak tanpa dirender sebagai analisis. Aplikasi menyusun semua teks, angka dan sitasi dari data sumber. Perubahan template melalui peninjauan kode.

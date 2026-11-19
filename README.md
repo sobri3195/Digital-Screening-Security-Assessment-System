@@ -36,3 +36,7 @@ Jalankan migrasi setelah memperbarui checkout. Menu Threat Intelligence menyedia
 ## Device Inspector
 
 Modul desktop Fase 4 tersedia di `desktop/`. Lihat [implementasi dan instalasi Device Inspector](docs/PHASE_4_IMPLEMENTATION.md) untuk pemeriksaan lokal, katalog offline, cakupan Windows, dan langkah membangun paket x64.
+
+## SENTINEL AI Engine
+
+Gateway FastAPI Fase 6 menyediakan analisis teknis lokal, pencarian berbasis bukti, serta tinjauan manusia untuk web dan Device Inspector. Integrasi bersifat opsional. [Panduan implementasi Fase 6](docs/PHASE_6_IMPLEMENTATION.md)

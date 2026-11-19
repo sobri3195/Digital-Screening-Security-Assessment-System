@@ -16,3 +16,4 @@ __pycache__/
 /ai-engine/storage/
 /ai-engine/.venv/
 /ai-engine/.env
+/.venv-ai/
