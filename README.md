@@ -12,6 +12,12 @@ Digital Security Assessment System untuk administrasi pemeriksaan teknis aset in
 
 Pemeriksaan URL menggunakan heuristik statis. File pemeriksaan disimpan di luar document root. Akun demo dan data sintetis hanya dibuat melalui perintah terpisah.
 
+## Pratinjau publik di Vercel
+
+Gunakan root repository sebagai **Root Directory** di pengaturan proyek Vercel. Deploy commit yang memuat `vercel.json`. Konfigurasi ini menonaktifkan framework preset dan memublikasikan direktori `vercel-preview/` sebagai situs statis tanpa langkah instalasi atau build.
+
+Pratinjau memuat ringkasan produk dan modul. Untuk menjalankan pemeriksaan, pengelolaan akun, dan pelaporan, ikuti [panduan instalasi intranet](docs/INSTALLATION.md).
+
 ## Verifikasi
 
 Jalankan `php tests/run.php` untuk unit checks dan ikuti [laporan pengujian](docs/TEST_REPORT.md) untuk smoke test HTTP dengan database disposable.
