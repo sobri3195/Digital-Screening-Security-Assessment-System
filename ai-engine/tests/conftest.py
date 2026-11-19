@@ -99,7 +99,7 @@ class Harness:
 @pytest.fixture
 def gateway(tmp_path):
     calls = []
-    mode = {"invalid": False, "drift": False}
+    mode = {"invalid": False, "drift": False, "cloud_alias": False}
 
     def reply(request):
         calls.append(
@@ -108,6 +108,11 @@ def gateway(tmp_path):
         if request.url.path == "/api/tags":
             models = [entry | {"digest": "f" * 64} for entry in TEST_MODELS] if mode["drift"] else TEST_MODELS
             return httpx.Response(200, json={"models": models})
+        if request.url.path == "/api/show":
+            body = {"model_info": {"general.architecture": "test"}}
+            if mode["cloud_alias"]:
+                body.update(remote_host="https://example.test", remote_model="test-cloud")
+            return httpx.Response(200, json=body)
         if request.url.path == "/api/ps":
             return httpx.Response(200, json={"models": [{"digest": DIGEST, "size_vram": 0}]})
         if request.url.path == "/api/embed":

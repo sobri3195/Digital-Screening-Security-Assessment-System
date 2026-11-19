@@ -93,11 +93,20 @@ class Ollama:
         return result
 
     async def ensure_model(self, approved: dict):
+        tag = approved["name"].rsplit("/", 1)[-1].lower()
+        if re.search(r"(?:^|[:_-])cloud(?:$|[:_-])", tag):
+            raise RuntimeFailure("external_model_denied")
         if not any(
-            model["name"] == approved["name"] and model["digest"] == approved["digest"]
+            model["name"] == approved["name"] and model["digest"] == approved["digest"] and model["size"]
             for model in await self.tags()
         ):
             raise RuntimeFailure("model_digest_unavailable")
+        metadata = await self._json("POST", "/api/show", {"model": approved["name"], "verbose": False})
+        if metadata.get("remote_host") or metadata.get("remote_model"):
+            raise RuntimeFailure("external_model_denied")
+        info = metadata.get("model_info")
+        if not isinstance(info, dict) or not isinstance(info.get("general.architecture"), str):
+            raise RuntimeFailure("local_model_metadata_unavailable")
 
     async def generate(self, approved: dict, system: str, context: str, schema: dict) -> tuple[dict, dict]:
         await self.ensure_model(approved)
@@ -144,6 +153,8 @@ class Ollama:
                         data = json.loads(line)
                         if not isinstance(data, dict) or "error" in data:
                             raise RuntimeFailure("inference_error")
+                        if data.get("remote_host") or data.get("remote_model"):
+                            raise RuntimeFailure("external_model_denied")
                         piece = data.get("response")
                         if isinstance(piece, str) and piece:
                             if first_ms is None:
@@ -205,6 +216,8 @@ class Ollama:
             "/api/embed",
             {"model": approved["name"], "input": texts, "options": options, "truncate": False},
         )
+        if item.get("remote_host") or item.get("remote_model"):
+            raise RuntimeFailure("external_model_denied")
         matrix = vectors(item.get("embeddings"), len(texts))
         await self.ensure_model(approved)
         return matrix

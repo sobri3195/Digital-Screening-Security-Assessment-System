@@ -263,6 +263,10 @@ def create_app(settings: Settings | None = None, runtime=None) -> FastAPI:
             raise AccessError(503, "runtime_unavailable") from None
         if not selected:
             raise AccessError(404, "model_not_installed")
+        try:
+            await asyncio.wait_for(ollama.ensure_model(selected), timeout=5)
+        except asyncio.TimeoutError:
+            raise AccessError(503, "runtime_unavailable") from None
         return {
             "id": store.approve_model(user, body.name, body.role, selected["digest"], body.license_reference)
         }

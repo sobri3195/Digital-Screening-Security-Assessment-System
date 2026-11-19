@@ -155,3 +155,13 @@ def test_configuration_without_reference_preserves_typed_observations(gateway):
         ).status_code
         == 422
     )
+
+
+def test_alias_that_routes_to_remote_runtime_is_denied_before_inference(gateway):
+    gateway.approve()
+    gateway.model()
+    gateway.mode["cloud_alias"] = True
+    requested = gateway.send("/analyze/vulnerability", {"kind": "vulnerability", "cve": "CVE-2021-44228"})
+    failed = gateway.wait(requested.json()["id"])
+    assert failed["state"] == "failed" and failed["error_code"] == "external_model_denied"
+    assert not any(path == "/api/generate" for _, path, _ in gateway.calls)
