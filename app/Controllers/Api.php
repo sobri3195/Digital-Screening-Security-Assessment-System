@@ -3,6 +3,7 @@ declare(strict_types=1);
 namespace Sentinel\Controllers;
 
 use Sentinel\Core\Http;
+use Sentinel\Services\Ai\Gateway;
 
 final class Api
 {
@@ -15,7 +16,7 @@ final class Api
     ];
     public static function scopes(): array
     {
-        return ['assets.read','inspections.read','checklists.read','findings.read','reports.read',...((require BASE . '/config/threat.php')['permissions'])];
+        return ['assets.read','inspections.read','checklists.read','findings.read','reports.read',...((require BASE . '/config/threat.php')['permissions']),...Gateway::scopes()];
     }
 
     public static function handle(string $path): never
@@ -50,6 +51,9 @@ final class Api
         if (str_starts_with($path, 'threat-intelligence/')) {
             ThreatApi::handle(substr($path, strlen('threat-intelligence/')), $method, self::client());
         }
+        if ($path === 'ai' || str_starts_with($path, 'ai/')) {
+            self::forwardAi(substr($path,3),$method,self::client());
+        }
         if (!isset(self::ROUTES[$path])) {
             throw new Http(404, 'Endpoint tidak ditemukan.');
         }
@@ -71,6 +75,28 @@ final class Api
         $rows = query("SELECT $columns FROM $table $where $condition id > ? ORDER BY id LIMIT 100", [$cursor ?: 0])->fetchAll();
         audit(null, 'baca', 'api:' . $path);
         Http::json(['data' => $rows, 'next_after' => count($rows) === 100 ? end($rows)['id'] : null]);
+    }
+
+    private static function forwardAi(string $route, string $method, array $client): never
+    {
+        $read = preg_match('~^(health|status|models|tasks(?:/[a-f0-9]{32})?|knowledge/search|evaluation|audit)$~D',$route);
+        $post = preg_match('~^(analyze/(?:threat|vulnerability|malware|configuration|mitigation|correlation|advisory|education)|tasks/[a-f0-9]{32}/cancel)$~D',$route);
+        if ((!$read || $method !== 'GET') && (!$post || $method !== 'POST')) {
+            throw new Http(404, 'Endpoint AI tidak tersedia untuk klien.');
+        }
+        $query = $route === 'knowledge/search' ? '?' . http_build_query(['q'=>text_input($_GET,'q')]) : '';
+        $body = null;
+        if ($post && str_starts_with($route, 'analyze/')) {
+            $raw = file_get_contents('php://input',false,null,0,8193);
+            $body = is_string($raw) ? json_decode($raw,true,16) : null;
+            if (!is_array($body) || array_is_list($body) || strlen($raw)>8192) {
+                throw new Http(422,'Data teknis tidak valid.');
+            }
+        }
+        $scopes = explode(',', $client['scopes'] ?? '');
+        $result = Gateway::request($method,'/' . $route . $query,'client:' . $client['id'],$scopes,$body);
+        audit(null,'api','ai');
+        Http::json($result,$method === 'POST' ? 202 : 200);
     }
 
     private static function client(): array

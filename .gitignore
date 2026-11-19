@@ -12,3 +12,7 @@
 *.egg-info/
 __pycache__/
 .pytest_cache/
+
+/ai-engine/storage/
+/ai-engine/.venv/
+/ai-engine/.env

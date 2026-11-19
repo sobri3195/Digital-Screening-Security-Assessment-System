@@ -27,6 +27,9 @@ elseif ($route === 'vulnerabilities'): ?>
     <?php foreach (['nvd_evidence'=>'Metadata NVD','kev_evidence'=>'Metadata CISA'] as $key=>$label): if ($detail[$key]): ?>
         <details class="ti-evidence"><summary><?= escape($label) ?></summary><pre class="ti-value"><?= escape($detail[$key]) ?></pre></details>
     <?php endif; endforeach ?>
+    <?php if (Sentinel\Core\Auth::allows($user,'ai.vulnerability.analyze')): ?>
+        <a class="btn btn-outline-secondary" href="/ai/vulnerability?cve=<?= escape($detail['cve']) ?>">Jelaskan CVE dengan AI</a>
+    <?php endif ?>
     <h3>Kandidat aset lokal</h3>
     <?php if ($can('finding.verify')): ?>
         <form method="post" action="<?= escape($base) ?>" class="actions">

@@ -1,0 +1,60 @@
+name: Local AI Gateway
+
+on:
+  push:
+    branches: ["codex/sentinel-phase-6"]
+    paths: ["ai-engine/**", ".github/workflows/sentinel-ai.yml"]
+  pull_request:
+    paths: ["ai-engine/**", ".github/workflows/sentinel-ai.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gateway:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install and test gateway
+        run: |
+          python -m pip install "./ai-engine[test]"
+          python -m pytest -q ai-engine/tests
+      - name: Verify and run local Ollama with explicitly approved QA models
+        if: github.event_name != 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          curl --fail --location --silent --show-error --retry 2 --max-time 300 \
+            https://github.com/ollama/ollama/releases/download/v0.12.11/ollama-linux-amd64.tgz -o ollama-linux-amd64.tgz
+          printf '%s  %s\n' 'fb140ea4243706d0087b0108418ee5c6f74edcebf5f14e2f289b8e36bd303d0f' ollama-linux-amd64.tgz | sha256sum --check
+          mkdir -p ollama-runtime ollama-models
+          tar -xzf ollama-linux-amd64.tgz -C ollama-runtime
+          export OLLAMA_HOST=127.0.0.1:11437 OLLAMA_MODELS="$RUNNER_TEMP/ollama-models"
+          export OLLAMA_NUM_PARALLEL=1 OLLAMA_MAX_LOADED_MODELS=1
+          "$RUNNER_TEMP/ollama-runtime/bin/ollama" serve > "$RUNNER_TEMP/ollama.log" 2>&1 &
+          server=$!
+          trap 'kill "$server" || true' EXIT
+          for retry in $(seq 1 60); do
+            if curl --fail --silent --max-time 2 http://127.0.0.1:11437/api/version > /dev/null; then break; fi
+            sleep 1
+          done
+          curl --fail --silent --show-error http://127.0.0.1:11437/api/version
+          "$RUNNER_TEMP/ollama-runtime/bin/ollama" pull qwen2.5:0.5b
+          "$RUNNER_TEMP/ollama-runtime/bin/ollama" pull nomic-embed-text:latest
+          cd "$GITHUB_WORKSPACE"
+          AI_LIVE_TEST=1 AI_OLLAMA_ORIGIN=http://127.0.0.1:11437 \
+            AI_LIVE_INFERENCE_MODEL=qwen2.5:0.5b AI_LIVE_EMBEDDING_MODEL=nomic-embed-text:latest \
+            AI_LIVE_METRICS="$RUNNER_TEMP/ollama-metrics.json" python -m pytest -q -s ai-engine/tests/test_live.py
+      - name: Upload measured model metrics
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: local-ollama-metrics
+          path: ${{ runner.temp }}/ollama-metrics.json
+          if-no-files-found: error

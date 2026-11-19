@@ -5,8 +5,8 @@ $title = $data['title'];
 $logo = $user && $template !== 'error' ? Sentinel\Services\Branding::dataUri() : '';
 $notice = $_SESSION['notice'] ?? null;
 unset($_SESSION['notice']);
-$labels = ['Utama', 'Administrasi', 'Keamanan Digital', 'Threat Intelligence', 'Pelaporan', 'Sistem'];
-$icons = ['speedometer2', 'clipboard2-check', 'shield-check', 'radar', 'bar-chart', 'gear'];
+$labels = ['Utama', 'Administrasi', 'Keamanan Digital', 'Threat Intelligence', 'Artificial Intelligence', 'Pelaporan', 'Sistem'];
+$icons = ['speedometer2', 'clipboard2-check', 'shield-check', 'radar', 'cpu', 'bar-chart', 'gear'];
 $links = [
     'Utama' => [['Dashboard', '/', 'dashboard.read']],
     'Pelaporan' => [
@@ -22,6 +22,9 @@ foreach ($modules as $table => $module) {
 }
 foreach (Sentinel\Controllers\Threat::PAGES as $route => [$label, $permission]) {
     $links['Threat Intelligence'][] = [$label, '/threat/' . $route, 'threat.' . $permission];
+}
+foreach (Sentinel\Controllers\Ai::PAGES as $route => [$label,$permission]) {
+    $links['Artificial Intelligence'][] = [$label,'/ai/' . $route,$permission];
 }
 ?><!doctype html>
 <html lang="id" data-bs-theme="dark">
@@ -41,7 +44,8 @@ foreach (Sentinel\Controllers\Threat::PAGES as $route => [$label, $permission]) 
     <script defer src="/assets/vendor/sweetalert2.js"></script>
     <?php endif ?>
     <script defer src="/assets/js/sentinel.js"></script>
-    <?php if (in_array($template, ['dashboard','threat/dashboard'], true)): ?><script defer src="/assets/vendor/chart.js"></script><?php endif ?>
+    <?php if ($template === 'ai'): ?><script defer src="/assets/js/ai.js"></script><?php endif ?>
+    <?php if (in_array($template, ['dashboard','threat/dashboard'], true) || ($template === 'ai' && $data['section'] === 'dashboard')): ?><script defer src="/assets/vendor/chart.js"></script><?php endif ?>
 </head>
 <body class="<?= $user ? 'application' : 'guest' ?>">
 <?php if ($user): ?>

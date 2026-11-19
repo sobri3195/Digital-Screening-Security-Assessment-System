@@ -42,6 +42,7 @@ from PySide6.QtWidgets import (
 )
 
 from . import __version__, backup, engines, intelligence, platforms, reporting
+from .ai_panel import AiPanel
 from .database import Database, InspectorError, json_text
 from .models import (
     Asset,
@@ -83,6 +84,7 @@ PAGES = [
     "Katalog intelijen",
     "Aturan YARA",
     "Sistem",
+    "AI Assistant",
 ]
 METRICS = {
     "assets": "Aset terdaftar",
@@ -253,6 +255,8 @@ class InspectorWindow(QMainWindow):
             pane.setSpacing(10)
             builder(pane)
             self.pages.addWidget(widget)
+        self.ai_panel = AiPanel(self)
+        self.pages.addWidget(self.ai_panel)
         menu.currentRowChanged.connect(self.pages.setCurrentIndex)
         menu.setCurrentRow(0)
         self.statusBar().showMessage("Siap")
