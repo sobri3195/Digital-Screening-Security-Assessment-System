@@ -48,6 +48,7 @@ if ($command === 'migrate') {
         query('INSERT IGNORE INTO checklist_items (title) VALUES (?)', [$item]);
     }
     Sentinel\Services\Threat\Setup::seed();
+    Sentinel\Services\Ai\Setup::seed();
     echo "Migrasi dan konfigurasi awal selesai.\n";
     exit;
 }

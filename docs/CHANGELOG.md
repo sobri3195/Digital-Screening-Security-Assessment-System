@@ -11,3 +11,8 @@
 - Katalog lokal IOC/CVE, korelasi dan skor teknis, bukti snapshot, alert, dan mitigasi aset.
 - Adapter feed tetap dengan sinkronisasi terjadwal, monitor, parser salinan advisori, dan transfer IOC offline.
 - Dashboard dan laporan intelijen, integrasi SHA-256, endpoint REST berbasis scope, dokumentasi, dan pengujian.
+
+## 3.0.0 — SENTINEL AI Engine
+
+- Gateway FastAPI lokal, persetujuan model, indeks FTS5/FAISS, antrean terautentikasi, audit dan verifikasi petugas.
+- Analisis teknis dengan keluaran terstruktur, integrasi web dan Device Inspector, serta ekspor draf rujukan publik Fase 2.

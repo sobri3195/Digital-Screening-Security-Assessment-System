@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 use Sentinel\Controllers\Dashboard;
+use Sentinel\Controllers\Ai;
 use Sentinel\Controllers\Profile;
 use Sentinel\Controllers\Records;
 use Sentinel\Controllers\Threat;
@@ -46,6 +47,12 @@ function dispatch_web(string $path, ?array $user, array $modules): array
     }
     if (str_starts_with($path, '/threat/')) {
         return Threat::handle(substr($path, 8), $user, $post);
+    }
+    if ($path === '/ai' && !$post) {
+        Http::redirect('/ai/dashboard');
+    }
+    if (str_starts_with($path, '/ai/')) {
+        return Ai::handle(substr($path, 4), $user, $post);
     }
     if ($path === '/profile') {
         return ['profile', ['title' => 'Profil Saya'] + Profile::handle($user)];

@@ -20,7 +20,7 @@ def test_qt_workflow_and_selected_file(db, tmp_path, monkeypatch):
     window = InspectorWindow(db)
     window.show()
     try:
-        assert window.pages.count() == 7
+        assert window.pages.count() == 8
         assert window.asset_picker.currentData()
         window.reference.setText("TEST-001")
         window.operator.setText("TEST.OP")
