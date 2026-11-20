@@ -38,12 +38,14 @@ function db(): PDO
     if ($pdo === null) {
         $dsn = sprintf('mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4',
             config('DB_HOST', '127.0.0.1'), config('DB_PORT', '3306'), config('DB_NAME', 'puskesau_sentinel'));
-        $pdo = new PDO($dsn, config('DB_USER', 'sentinel'), config('DB_PASSWORD'), [
+        $connection = new PDO($dsn, config('DB_USER', 'sentinel'), config('DB_PASSWORD'), [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             PDO::ATTR_EMULATE_PREPARES => false,
         ]);
-        $pdo->exec("SET time_zone = '+07:00'");
+        $connection->exec("SET time_zone = '+07:00'");
+        Sentinel\Core\DeploymentUnit::verify($connection);
+        $pdo = $connection;
     }
     return $pdo;
 }

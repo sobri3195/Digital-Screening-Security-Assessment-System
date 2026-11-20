@@ -30,32 +30,35 @@ KINDS = {
 }
 
 
-def document(db: Database, session: str, kind: str) -> dict:
+def document(db: Database, session: str, kind: str, revision: int | None = None) -> dict:
     if kind not in KINDS:
         raise InspectorError("Jenis laporan tidak valid.")
     record = db.session(session)
     if record["status"] in ("ready", "running", "cancelled"):
         raise InspectorError("Laporan tersedia setelah sesi siap ditinjau.")
-    rule = db.score_rule(record["scoring_rule"])
-    posture = evaluate(record, rule)
+    snapshot = db.report_revision(session, revision) if record["status"] == "closed" or revision is not None else None
+    if snapshot:
+        record = snapshot["record"]
+        revision = snapshot["revision"]
+        posture = snapshot["posture"]
+    else:
+        posture = evaluate(record, db.score_rule(record["scoring_rule"]))
     title, modules = KINDS[kind]
     evidence = [row for row in record["evidence"] if modules is None or row["module"] in modules]
     if kind == "usb":
         evidence = [
             {"source": "Monitor USB lokal", "payload": row, "verified_integrity": None, "sha256": "—"}
-            for row in db.rows(
-                """SELECT event,category,manufacturer,model,driver_status,observed_at FROM usb_events
-                WHERE observed_at>=? AND observed_at<=? ORDER BY observed_at LIMIT 200""",
-                (record["started_at"], record["ended_at"]),
-            )
+            for row in (snapshot["usb"] if snapshot else db.report_usb(record))
         ]
     evidence_ids = {row.get("id") for row in evidence}
     finds = [row for row in record["findings"] if row["evidence_id"] in evidence_ids]
     return {
-        "document": "PSI-" + session[:10].upper() + "-" + kind.upper(),
+        "document": "PSI-" + session[:10].upper() + "-" + kind.upper() + (f"-R{revision}" if snapshot else "-DRAF"),
         "title": title,
         "institution": "Pusat Kesehatan TNI Angkatan Udara",
-        "generated_at": now(),
+        "generated_at": snapshot["generated_at"] if snapshot else now(),
+        "revision": revision,
+        "legacy_snapshot": bool(snapshot and snapshot["legacy"]),
         "kind": kind,
         "session": {
             key: value
@@ -92,6 +95,8 @@ def preview(data: dict) -> str:
         "",
         f"Temuan dalam laporan: {len(data['findings'])}",
     ]
+    if data["legacy_snapshot"]:
+        lines.append("Dokumen lama. Metadata yang dapat dipulihkan dibekukan saat migrasi.")
     for task in data["tasks"]:
         lines.append(f"- {task['module']}: {task['status']} · {task['notice']}")
     for finding in data["findings"]:
@@ -113,7 +118,7 @@ def preview(data: dict) -> str:
 
 def _pdf(data: dict) -> bytes:
     memory = BytesIO()
-    pdf = canvas.Canvas(memory, pagesize=A4, pageCompression=1)
+    pdf = canvas.Canvas(memory, pagesize=A4, pageCompression=1, invariant=1)
     pdf.setTitle(data["title"])
     pdf.setAuthor(data["institution"])
     width, height = A4
@@ -177,8 +182,8 @@ def _csv(data: dict) -> bytes:
     return result.getvalue().encode("utf-8-sig")
 
 
-def export(db: Database, session: str, kind: str, out: Path) -> str:
-    result = document(db, session, kind)
+def export(db: Database, session: str, kind: str, out: Path, revision: int | None = None) -> str:
+    result = document(db, session, kind, revision)
     extension = out.suffix.lower().removeprefix(".")
     if extension == "pdf":
         content = _pdf(result)
@@ -195,5 +200,5 @@ def export(db: Database, session: str, kind: str, out: Path) -> str:
             "INSERT INTO reports VALUES (?,?,?,?,?,?)",
             (uuid4().hex, session, kind, extension, checksum, now()),
         )
-        db.audit(c, session, "report_generated", {"kind": kind, "format": extension, "sha256": checksum})
+        db.audit(c, session, "report_generated", {"kind": kind, "format": extension, "sha256": checksum, "revision": result["revision"]})
     return checksum

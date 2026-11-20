@@ -108,6 +108,32 @@ final class Store
         return $existing !== $checksum;
     }
 
+    public static function applyKevSnapshot(array $rows, int $job): int
+    {
+        $active = array_column(query('SELECT id,cve,kev_added_on,kev_evidence,kev_evidence_sha256
+            FROM ti_vulnerabilities WHERE kev_added_on IS NOT NULL FOR UPDATE')->fetchAll(), null, 'cve');
+        $unchanged = 0;
+        foreach ($rows as $row) {
+            $cve = $row['cve'];
+            $unchanged += (int) !self::vulnerability('cisa', $row);
+            if (!isset($active[$cve])) {
+                $id = query('SELECT id FROM ti_vulnerabilities WHERE cve=?', [$cve])->fetchColumn();
+                $evidence = self::json($row);
+                query("INSERT INTO ti_kev_history (vulnerability_id,sync_job_id,status,evidence,evidence_sha256) VALUES (?,?,'added',?,?)",
+                    [$id, $job, $evidence, hash('sha256', $evidence)]);
+            }
+            unset($active[$cve]);
+        }
+        foreach ($active as $previous) {
+            $evidence = $previous['kev_evidence'] ?? self::json(['cve' => $previous['cve'], 'added' => $previous['kev_added_on']]);
+            query("INSERT INTO ti_kev_history (vulnerability_id,sync_job_id,status,evidence,evidence_sha256) VALUES (?,?,'removed',?,?)",
+                [$previous['id'], $job, $evidence, $previous['kev_evidence_sha256'] ?? hash('sha256', $evidence)]);
+            query('UPDATE ti_vulnerabilities SET kev_added_on=NULL,kev_due_on=NULL,kev_title=NULL,kev_action=NULL,
+                kev_ransomware=NULL,kev_evidence=NULL,kev_evidence_sha256=NULL WHERE id=?', [$previous['id']]);
+        }
+        return $unchanged;
+    }
+
     public static function vulnerability(string $type, array $row): bool
     {
         if (!preg_match('/^CVE-[0-9]{4}-[0-9]{4,19}$/D', $row['cve'] ?? '')) {

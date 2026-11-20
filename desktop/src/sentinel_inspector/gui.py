@@ -637,6 +637,9 @@ class InspectorWindow(QMainWindow):
         row = QHBoxLayout()
         self.report_kind = combo({key: value[0] for key, value in reporting.KINDS.items()})
         row.addWidget(self.report_kind)
+        self.report_version = combo({None: "Draf"})
+        self.report_version.setAccessibleName("Versi laporan")
+        row.addWidget(self.report_version)
         for label, action in (
             ("Pratinjau / cetak", self.preview),
             ("Ekspor", self.export_report),
@@ -772,6 +775,17 @@ class InspectorWindow(QMainWindow):
         record = self.db.session(session)
         self.session_id = session
         self.session_data = record
+        self.report_version.clear()
+        if record["status"] == "closed":
+            versions = self.db.rows(
+                "SELECT revision FROM inspection_report_revisions WHERE inspection_id=? ORDER BY revision DESC",
+                (session,),
+            )
+            for version in versions:
+                number = version["revision"]
+                self.report_version.addItem(f"Revisi {number}", number)
+        else:
+            self.report_version.addItem("Draf", None)
         rule = self.db.score_rule(record["scoring_rule"])
         result = evaluate(record, rule)
         self.posture.setText(
@@ -853,7 +867,9 @@ class InspectorWindow(QMainWindow):
         return self.session_id
 
     def preview(self):
-        result = reporting.document(self.db, self.require_session(), self.report_kind.currentData())
+        result = reporting.document(
+            self.db, self.require_session(), self.report_kind.currentData(), self.report_version.currentData()
+        )
         dialog = QDialog(self)
         dialog.setWindowTitle(result["title"])
         dialog.resize(780, 600)
@@ -878,7 +894,9 @@ class InspectorWindow(QMainWindow):
             self, "Simpan laporan", "sentinel-report.pdf", "PDF (*.pdf);;JSON (*.json);;CSV (*.csv)"
         )
         if path:
-            result = reporting.export(self.db, session, self.report_kind.currentData(), Path(path).absolute())
+            result = reporting.export(
+                self.db, session, self.report_kind.currentData(), Path(path).absolute(), self.report_version.currentData()
+            )
             self.statusBar().showMessage("Laporan tersimpan · SHA-256 " + result, 10000)
             self.load_session(session)
 

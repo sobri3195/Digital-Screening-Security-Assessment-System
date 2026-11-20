@@ -97,6 +97,10 @@ final class Backup
             foreach ($tables as $table => $rows) {
                 $trusted = query("SHOW COLUMNS FROM `$table`")->fetchAll(\PDO::FETCH_COLUMN);
                 foreach ($rows as $row) {
+                    if ($table === 'reports'
+                        && array_keys($row) === array_values(array_diff($trusted, ['final_document','revision_of','revision_reason']))) {
+                        $row = array_replace(array_fill_keys($trusted, null), $row);
+                    }
                     if (array_keys($row) !== $trusted) {
                         throw new Http(422, 'Struktur baris backup tidak cocok.');
                     }
@@ -110,6 +114,7 @@ final class Backup
                 query('INSERT INTO ti_asset_vulnerabilities (id,asset_id,vulnerability_id,state,basis,due_on,assignee_id,note,updated_at)
                     VALUES (?,?,?,?,?,?,?,?,?)', array_values($link));
             }
+            Reports::backfillFinalDocuments();
             audit($user, 'restore', 'backup');
             db()->commit();
         } catch (\Throwable $error) {

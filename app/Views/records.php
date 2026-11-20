@@ -7,6 +7,7 @@ $fields = $data['fields'];
 $record = $data['record'];
 $special = $data['special'];
 $write = $data['write'];
+$reportState = $special === 'report' ? ($record['state'] ?? null) : null;
 $archive = $data['archive'];
 $base = $archive ? '/archive' : '/m/' . $table;
 $isBackup = $special === 'backup';
@@ -59,7 +60,7 @@ $columns = array_slice($fields, 0, 4, true);
         </form>
         <?php endif ?>
     </section>
-<?php elseif ($write && !in_array($special, ['readonly'], true)): ?>
+<?php elseif ($write && $special !== 'readonly' && !in_array($reportState, ['diajukan','disetujui','arsip'], true)): ?>
     <details class="panel spaced" <?= $record ? 'open' : '' ?>>
         <summary><?= escape($special === 'url' ? 'Periksa URL' : ($special === 'file' ? 'Periksa file' : ($record ? 'Ubah data' : 'Tambah data'))) ?></summary>
         <?php if ($special === 'url'): ?><p>Pemeriksaan statis. Indikator perlu ditinjau dan tidak menyatakan bahwa URL berbahaya.</p><?php endif ?>
@@ -147,7 +148,37 @@ $columns = array_slice($fields, 0, 4, true);
             <button class="btn btn-outline-secondary" name="action" value="scan">Periksa SHA-256 pada katalog lokal</button>
         </form>
     <?php endif ?>
-    <?php if ($special === 'report'): ?><a class="btn btn-outline-secondary" href="/reports/<?= escape($record['id']) ?>">Pratinjau laporan</a><?php endif ?>
+    <?php if ($special === 'report'): ?>
+        <a class="btn btn-outline-secondary" href="/reports/<?= escape($record['id']) ?>">Pratinjau laporan</a>
+        <?php if ($record['revision_of']): ?>
+            <p>Revisi dari <a href="/reports/<?= escape($record['revision_of']) ?>">laporan #<?= escape($record['revision_of']) ?></a> · <?= escape($record['revision_reason']) ?></p>
+        <?php endif ?>
+        <?php if ($write && Auth::allows($user, 'report.approve') && in_array($reportState, ['diajukan','disetujui'], true)): ?>
+            <form method="post" action="/m/reports" class="actions">
+                <input type="hidden" name="_csrf" value="<?= $csrf ?>">
+                <input type="hidden" name="id" value="<?= escape($record['id']) ?>">
+                <?php if ($reportState === 'diajukan'): ?>
+                    <?php if ($record['user_id'] !== null && (int) $record['user_id'] !== (int) $user['id']): ?>
+                        <button class="btn btn-primary" name="action" value="setujui">Setujui laporan</button>
+                    <?php endif ?>
+                    <button class="btn btn-outline-secondary" name="action" value="kembalikan">Kembalikan ke draf</button>
+                <?php else: ?>
+                    <button class="btn btn-outline-secondary" name="action" value="arsipkan">Arsipkan laporan</button>
+                <?php endif ?>
+            </form>
+        <?php endif ?>
+        <?php if (Auth::allows($user, 'report.read') && Auth::allows($user, 'report.write') && in_array($reportState, ['disetujui','arsip'], true)): ?>
+            <details class="spaced"><summary>Buat revisi laporan</summary>
+                <form method="post" action="/m/reports" class="record-form">
+                    <input type="hidden" name="_csrf" value="<?= $csrf ?>">
+                    <input type="hidden" name="id" value="<?= escape($record['id']) ?>">
+                    <label>Nomor laporan baru <input class="form-control" name="revision_code" maxlength="100" required></label>
+                    <label>Alasan revisi <textarea class="form-control" name="revision_reason" maxlength="500" required></textarea></label>
+                    <button class="btn btn-primary" name="action" value="revisi">Buat draf revisi</button>
+                </form>
+            </details>
+        <?php endif ?>
+    <?php endif ?>
     <?php if (isset($data['extras']['history'])): ?><h3>Riwayat</h3><ul class="activity-list">
         <?php foreach ($data['extras']['history'] as $event): ?><li><span><?= escape($event['notes']) ?></span><time><?= escape($event['created_at']) ?></time></li><?php endforeach ?>
     </ul><?php endif ?>

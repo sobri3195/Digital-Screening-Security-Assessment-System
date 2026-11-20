@@ -29,14 +29,15 @@ def authorized(db, modules, platform="android", local=False):
 
 def test_migration_up_down_and_fk(tmp_path):
     db = Database(tmp_path / "db.sqlite3")
-    assert db.one("PRAGMA user_version")["user_version"] == 2
+    assert db.one("PRAGMA user_version")["user_version"] == 3
     assert len(db.rows("PRAGMA foreign_key_check")) == 0
     with db.write() as c:
+        db._migration(c, "003_rollback.sql")
         db._migration(c, "002_rollback.sql")
         db._migration(c, "001_rollback.sql")
     db.engine.dispose()
     again = Database(tmp_path / "db.sqlite3")
-    assert again.one("PRAGMA user_version")["user_version"] == 2
+    assert again.one("PRAGMA user_version")["user_version"] == 3
     assert again.verify_audit()
 
 
@@ -60,6 +61,25 @@ def test_scope_requires_affirmative_authorization_and_local_host(db):
     unauthorized = request.model_copy(update={"modules": [Module.IOS]})
     with pytest.raises(InspectorError, match="di luar kategori"):
         db.create(unauthorized)
+
+
+def test_closed_report_preserves_preceding_revision(db, tmp_path):
+    session = db.create(authorized(db, [Module.ANDROID]))
+    checks = (MobileCheck(control="screen_lock", state="fail"),)
+    run(db, session, Selection({Module.ANDROID}, mobile_checks=checks), Event())
+    db.close(session, "TEST.REV")
+    previous = reporting.document(db, session, "complete")
+    first = reporting.export(db, session, "complete", tmp_path / "first.pdf")
+    finding = previous["findings"][0]["id"]
+    with pytest.raises(InspectorError, match="alasan"):
+        db.review_finding(finding, "resolved", "TEST.REV", "")
+    db.review_finding(finding, "resolved", "TEST.REV", "TEST resolved after close")
+    latest = reporting.document(db, session, "complete")
+    assert latest["document"].endswith("-R2")
+    assert latest["findings"][0]["status"] == "resolved"
+    assert reporting.document(db, session, "complete", 1) == previous
+    assert reporting.export(db, session, "complete", tmp_path / "again.pdf", 1) == first
+    assert db.verify_audit()
 
 
 def test_workspace_reports_audit_and_mobile_findings(db, tmp_path):

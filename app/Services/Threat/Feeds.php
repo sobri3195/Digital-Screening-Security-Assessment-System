@@ -86,6 +86,17 @@ final class Feeds
                 break;
         }
         [$rows, $rejected] = self::parse($code, $json);
+        if ($code === 'cisa' && !$preview) {
+            $released = Store::date($json['dateReleased'] ?? null, true);
+            if ($released === null || $rejected !== 0 || !$rows || ($json['count'] ?? null) !== count($rows)
+                || count(array_unique(array_column($rows, 'cve'))) !== count($rows)) {
+                throw new FeedFailure('Snapshot CISA KEV tidak lengkap atau berisi entri duplikat.');
+            }
+            if ($released < ($checkpoint['released'] ?? '')) {
+                throw new FeedFailure('Snapshot CISA KEV lebih lama dari sinkronisasi terakhir.');
+            }
+            $watermark = ['released' => $released];
+        }
         if ($preview) {
             $rows = array_slice($rows, 0, 5);
             $next = null;

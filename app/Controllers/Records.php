@@ -68,7 +68,8 @@ final class Records
         $record = [];
         $id = (int) text_input($_GET, 'id');
         if ($id > 0) {
-            $record = query("SELECT id, $columns, created_at FROM $table WHERE id = ? AND $rule", [$id, ...$filters])->fetch() ?: [];
+            $revisionFields = $special === 'report' ? ',revision_of,revision_reason,user_id' : '';
+            $record = query("SELECT id, $columns, created_at$revisionFields FROM $table WHERE id = ? AND $rule", [$id, ...$filters])->fetch() ?: [];
             if (!$record) {
                 throw new Http(404, 'Data tidak ditemukan.');
             }
@@ -174,13 +175,25 @@ final class Records
             if ($id && !$previous) {
                 throw new Http(404, 'Data tidak ditemukan.');
             }
+            if ($special === 'report' && $action === 'revisi') {
+                self::reportRevision($previous, $userId);
+                db()->commit();
+                return;
+            }
             if ($action === 'hapus' && in_array($table, ['institutional_assets', 'education', 'inspection_schedules', 'activity_periods'], true) && $id) {
                 query("DELETE FROM $table WHERE id = ?", [$id]);
                 audit($userId, 'hapus', $table);
                 db()->commit();
                 return;
             }
-            $data = self::fields($fields, $_POST);
+            $reportAction = $special === 'report' ? match ($action) {
+                'setujui' => 'disetujui', 'kembalikan' => 'draf', 'arsipkan' => 'arsip',
+                default => null,
+            } : null;
+            if ($reportAction !== null && ($previous['state'] ?? null) !== ($reportAction === 'arsip' ? 'disetujui' : 'diajukan')) {
+                throw new Http(422, 'Tindakan tidak sesuai dengan status laporan.');
+            }
+            $data = $reportAction === null ? self::fields($fields, $_POST) : ['state' => $reportAction];
             if ($table === 'system_settings' && (($data['title'] ?? '') === 'institution_logo' || ($previous['title'] ?? '') === 'institution_logo')) {
                 throw new Http(422, 'Gunakan formulir logo institusi.');
             }
@@ -231,8 +244,9 @@ final class Records
             if (in_array($special, ['finding', 'incident', 'report'], true)) {
                 self::workflow($special, $data, $previous, $user);
             }
-            if ($special === 'report' && $data['state'] === 'disetujui' && ($previous['state'] ?? '') !== 'disetujui') {
-                $data['result_snapshot'] = json_encode(Reports::results($data), JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE);
+            $approveReport = $special === 'report' && $data['state'] === 'disetujui';
+            if ($approveReport) {
+                $data['result_snapshot'] = json_encode(Reports::results($previous), JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE);
             }
             $saved = self::put($table, $data, $id);
             if ($special === 'users' || $special === 'roles') {
@@ -247,9 +261,10 @@ final class Records
                     query('INSERT INTO checklist_results VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE state = VALUES(state)', [$saved, $item, $state]);
                 }
             }
-            if ($special === 'report' && $data['state'] === 'disetujui' && ($previous['state'] ?? '') !== 'disetujui') {
+            if ($approveReport) {
                 query('INSERT INTO report_approvals (report_id,user_id) VALUES (?,?)', [$saved, $userId]);
-                query("INSERT INTO notifications (title,message,state) VALUES (?,?, 'baru')", ['Laporan disetujui', 'Laporan ' . $data['code'] . ' telah disetujui.']);
+                Reports::freeze($saved);
+                query("INSERT INTO notifications (title,message,state) VALUES (?,?, 'baru')", ['Laporan disetujui', 'Laporan ' . $previous['code'] . ' telah disetujui.']);
             }
             if ($special === 'incident' || in_array($table, ['activities', 'institutional_assets'], true)) {
                 $note = text_input($_POST, 'history_note');
@@ -294,6 +309,17 @@ final class Records
         $old = $previous['state'] ?? null;
         $state = $data['state'] ?? $old ?? $flow[0];
         $data['state'] = $state;
+        if ($type === 'report' && $old === 'diajukan') {
+            Auth::require($user, 'report.approve');
+            if (!in_array($state, ['disetujui', 'draf'], true)) {
+                throw new Http(422, 'Setujui laporan atau kembalikan ke draf sebelum mengubah isinya.');
+            }
+            if ($state === 'disetujui' && ($previous['user_id'] === null || (int) $previous['user_id'] === (int) $user['id'])) {
+                throw new Http(422, 'Penyetuju harus berbeda dari pembuat laporan yang tercatat.');
+            }
+            $data = ['state' => $state];
+            return;
+        }
         if (($old === null && $state !== $flow[0]) || ($old !== null && $state !== $old && array_search($state, $flow, true) !== array_search($old, $flow, true) + 1)) {
             throw new Http(422, 'Gunakan urutan status yang ditetapkan.');
         }
@@ -309,6 +335,25 @@ final class Records
         if ($old === null && $type !== 'incident') {
             $data['user_id'] = (int) $user['id'];
         }
+    }
+
+    private static function reportRevision(?array $previous, int $userId): void
+    {
+        if ($previous === null || !in_array($previous['state'], ['disetujui', 'arsip'], true)) {
+            throw new Http(422, 'Pilih laporan final untuk membuat revisi.');
+        }
+        $code = text_input($_POST, 'revision_code');
+        $reason = text_input($_POST, 'revision_reason');
+        if ($code === '' || $reason === '' || mb_strlen($code) > 100 || mb_strlen($reason) > 500
+            || !mb_check_encoding($code . $reason, 'UTF-8')) {
+            throw new Http(422, 'Isi nomor laporan baru dan alasan revisi yang valid.');
+        }
+        $data = array_intersect_key($previous, array_flip(['title','source','inspected_on','notes','evidence','mitigation']));
+        self::put('reports', $data + [
+            'code' => $code, 'state' => 'draf', 'user_id' => $userId,
+            'revision_of' => $previous['id'], 'revision_reason' => $reason,
+        ], 0);
+        audit($userId, 'buat-revisi', 'reports');
     }
 
     private static function assign(string $type, int $id): void

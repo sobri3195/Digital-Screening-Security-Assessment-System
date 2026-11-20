@@ -43,6 +43,7 @@ def main(argv=None):
     report.add_argument("session")
     report.add_argument("kind", choices=reporting.KINDS)
     report.add_argument("output", type=Path)
+    report.add_argument("--revision", type=int)
     close = sub.add_parser("close")
     close.add_argument("session")
     close.add_argument("reviewer")
@@ -111,7 +112,7 @@ def _dispatch(db: Database, args):
     if args.action == "retain-usb":
         return {"deleted": db.retain_usb(args.days)}
     if args.action == "report":
-        return {"sha256": reporting.export(db, args.session, args.kind, args.output.absolute())}
+        return {"sha256": reporting.export(db, args.session, args.kind, args.output.absolute(), args.revision)}
     if args.action == "close":
         from .models import Code
         from pydantic import TypeAdapter

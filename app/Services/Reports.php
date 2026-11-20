@@ -56,18 +56,50 @@ final class Reports
         } else {
             $rule = '';
         }
-        $report = query("SELECT r.*,u.title AS officer FROM reports r LEFT JOIN users u ON u.id=r.user_id WHERE r.id = ?$rule", [$id])->fetch();
+        $report = self::record($id, $rule);
         if (!$report) {
             throw new Http(404, 'Laporan tidak ditemukan.');
         }
-        $signatures = query('SELECT u.title,a.created_at FROM report_approvals a JOIN users u ON u.id=a.user_id WHERE a.report_id = ? ORDER BY a.id', [$id])->fetchAll();
+        $document = $report['final_document'] === null
+            ? self::liveDocument($report)
+            : json_decode($report['final_document'], true, 512, JSON_THROW_ON_ERROR);
+        if ($download) {
+            self::download($document, (int) $user['id']);
+        }
+        return $document;
+    }
+
+    public static function freeze(int $id, bool $legacy = false): void
+    {
+        $report = self::record($id);
+        $document = self::liveDocument($report);
+        $document['report']['legacy_snapshot'] = $legacy;
+        query('UPDATE reports SET final_document=? WHERE id=? AND final_document IS NULL',
+            [json_encode($document, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE), $id]);
+    }
+
+    public static function backfillFinalDocuments(): void
+    {
+        while ($id = query("SELECT id FROM reports WHERE state IN ('disetujui','arsip') AND final_document IS NULL ORDER BY id LIMIT 1")->fetchColumn()) {
+            self::freeze((int) $id, true);
+        }
+    }
+
+    private static function record(int $id, string $rule = ''): array|false
+    {
+        return query("SELECT r.*,u.title AS officer,previous.code AS revision_code FROM reports r
+            LEFT JOIN users u ON u.id=r.user_id LEFT JOIN reports previous ON previous.id=r.revision_of
+            WHERE r.id=?$rule", [$id])->fetch();
+    }
+
+    private static function liveDocument(array $report): array
+    {
+        $signatures = query('SELECT u.title,a.created_at FROM report_approvals a JOIN users u ON u.id=a.user_id WHERE a.report_id = ? ORDER BY a.id', [$report['id']])->fetchAll();
         $institution = query("SELECT value FROM system_settings WHERE title = 'institution_name'")->fetchColumn() ?: 'Pusat Kesehatan TNI Angkatan Udara';
         $logo = Branding::dataUri();
         $results = isset($report['result_snapshot']) ? json_decode($report['result_snapshot'], true, 512, JSON_THROW_ON_ERROR)
             : (in_array($report['state'], ['disetujui', 'arsip'], true) ? [] : self::results($report));
-        if ($download) {
-            self::download(compact('report','institution','signatures','logo','results'), (int) $user['id']);
-        }
+        unset($report['final_document'], $report['result_snapshot']);
         return compact('report', 'institution', 'signatures', 'logo', 'results');
     }
 

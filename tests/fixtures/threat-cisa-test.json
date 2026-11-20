@@ -1,5 +1,7 @@
 {
   "title": "TEST fixture",
+  "count": 1,
+  "dateReleased": "2026-01-15T12:00:00Z",
   "vulnerabilities": [
     {
       "cveID": "CVE-2099-12345",

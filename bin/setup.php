@@ -1,30 +1,45 @@
 <?php
 declare(strict_types=1);
-require dirname(__DIR__) . '/app/Core/bootstrap.php';
+
+use Sentinel\Core\DeploymentUnit;
+use Sentinel\Core\Migrations;
+use Sentinel\Services\Reports;
+use Sentinel\Services\Threat\IntelligenceReports;
+use Sentinel\Services\Threat\Store;
 
 $command = $argv[1] ?? '';
+if (in_array($command, ['migrate', 'unit-bind'], true)) {
+    define('SENTINEL_UNIT_SETUP', true);
+}
+require dirname(__DIR__) . '/app/Core/bootstrap.php';
+
 if ($command === 'key') {
     echo bin2hex(random_bytes(32)), PHP_EOL;
     exit;
 }
+if ($command === 'unit-bind') {
+    DeploymentUnit::bind();
+    echo "Unit terikat pada database dan penyimpanan.\n";
+    exit;
+}
 if ($command !== 'migrate' && $command !== 'admin') {
-    fwrite(STDERR, "Perintah: key | migrate | admin NAMA_PENGGUNA (kata sandi dari stdin)\n");
+    fwrite(STDERR, "Perintah: key | migrate | unit-bind | admin NAMA_PENGGUNA (kata sandi dari stdin)\n");
     exit(2);
 }
 if ($command === 'migrate') {
-    db()->exec('CREATE TABLE IF NOT EXISTS schema_migrations (name VARCHAR(190) PRIMARY KEY) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
-    foreach (glob(BASE . '/database/migrations/*.sql') as $file) {
-        $name = basename($file);
-        if (query('SELECT 1 FROM schema_migrations WHERE name = ?', [$name])->fetchColumn()) {
-            continue;
-        }
-        foreach (explode(';', (string) file_get_contents($file)) as $sql) {
-            if (trim($sql) !== '') {
-                db()->exec($sql);
-            }
-        }
-        query('INSERT INTO schema_migrations VALUES (?)', [$name]);
-    }
+    Migrations::run(static function (): void {
+        Store::transaction(seed_base_roles(...));
+        Sentinel\Services\Threat\Setup::seed();
+        Sentinel\Services\Ai\Setup::seed();
+        Reports::backfillFinalDocuments();
+        IntelligenceReports::backfillFinalDocuments();
+    });
+    echo "Migrasi dan konfigurasi awal selesai.\n";
+    exit;
+}
+
+function seed_base_roles(): void
+{
     $roles = require BASE . '/config/access.php';
     $permissions = ['dashboard.read', 'system.read', 'report.approved', 'report.approve', 'technical.approve'];
     foreach (require BASE . '/config/modules.php' as $module) {
@@ -47,10 +62,6 @@ if ($command === 'migrate') {
     foreach (['Pembaruan sistem operasi', 'Pembaruan antivirus', 'Enkripsi penyimpanan', 'Screen lock', 'Firewall', 'Autentikasi dua faktor', 'Backup data', 'Pengaturan keamanan jaringan', 'Software sah', 'Perlindungan phishing'] as $item) {
         query('INSERT IGNORE INTO checklist_items (title) VALUES (?)', [$item]);
     }
-    Sentinel\Services\Threat\Setup::seed();
-    Sentinel\Services\Ai\Setup::seed();
-    echo "Migrasi dan konfigurasi awal selesai.\n";
-    exit;
 }
 $username = $argv[2] ?? '';
 $password = rtrim((string) fgets(STDIN), "\r\n");

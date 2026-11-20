@@ -1,0 +1,4 @@
+ALTER TABLE reports ADD COLUMN final_document LONGTEXT NULL;
+ALTER TABLE reports ADD COLUMN revision_of INT UNSIGNED NULL;
+ALTER TABLE reports ADD COLUMN revision_reason VARCHAR(500) NULL;
+ALTER TABLE ti_reports ADD COLUMN final_document LONGTEXT NULL;

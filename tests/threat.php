@@ -88,6 +88,24 @@ if (in_array('--integration', $argv, true)) {
     $again = Queue::enqueue('cisa','sync',null);
     Queue::work(1, static fn () => $fixture);
     verify((int) query('SELECT unchanged FROM ti_sync_jobs WHERE id=?',[$again])->fetchColumn() === 1, 'Sinkronisasi berulang dideduplikasi');
+    $replacement = $fixture;
+    $replacement['vulnerabilities'][0]['cveID'] = 'CVE-2099-99999';
+    $replacement['dateReleased'] = '2026-01-16T12:00:00Z';
+    $partial = $replacement;
+    $partial['count'] = 2;
+    $partialId = Queue::enqueue('cisa','sync',null);
+    Queue::work(1, static fn () => $partial);
+    verify(query('SELECT state FROM ti_sync_jobs WHERE id=?', [$partialId])->fetchColumn() === 'failed'
+        && query("SELECT kev_added_on FROM ti_vulnerabilities WHERE cve='CVE-2099-12345'")->fetchColumn() !== null, 'Snapshot tidak lengkap tidak mengubah status KEV');
+    Queue::enqueue('cisa','sync',null);
+    Queue::work(1, static fn () => $replacement);
+    $removed = query("SELECT v.kev_added_on,h.status,h.evidence,h.evidence_sha256 FROM ti_vulnerabilities v
+        JOIN ti_kev_history h ON h.vulnerability_id=v.id WHERE v.cve='CVE-2099-12345' ORDER BY h.id DESC LIMIT 1")->fetch();
+    verify($removed['kev_added_on'] === null && $removed['status'] === 'removed'
+        && hash('sha256',$removed['evidence']) === $removed['evidence_sha256'], 'Snapshot lengkap menghapus status KEV dan menyimpan bukti');
+    $staleId = Queue::enqueue('cisa','sync',null);
+    Queue::work(1, static fn () => $fixture);
+    verify(query('SELECT state FROM ti_sync_jobs WHERE id=?', [$staleId])->fetchColumn() === 'failed', 'Snapshot lama ditolak');
     $provider = (int) Store::provider('manual')['id'];
     $ioc = ['value'=>'test-indicator.example.test','severity'=>'critical','confidence'=>90,'category'=>'phishing','first_seen'=>gmdate('Y-m-d\TH:i:s\Z')];
     Store::transaction(static fn () => Store::indicator($provider, $ioc));

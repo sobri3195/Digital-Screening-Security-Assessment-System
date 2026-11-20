@@ -79,7 +79,7 @@ def restore(source: Path, out: Path, secret: str) -> str:
             with closing(sqlite3.connect(check)) as connection:
                 connection.execute("PRAGMA trusted_schema=OFF")
                 if (
-                    connection.execute("PRAGMA user_version").fetchone() not in ((1,), (2,))
+                    connection.execute("PRAGMA user_version").fetchone() not in ((1,), (2,), (3,))
                     or connection.execute("PRAGMA integrity_check").fetchone() != ("ok",)
                     or connection.execute("PRAGMA foreign_key_check").fetchone()
                 ):

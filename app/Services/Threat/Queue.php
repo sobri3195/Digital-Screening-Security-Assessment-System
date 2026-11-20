@@ -96,9 +96,11 @@ final class Queue
                     return;
                 }
                 $unchanged = 0;
-                if ($job['action'] === 'sync') {
+                if ($job['action'] === 'sync' && $job['code'] === 'cisa') {
+                    $unchanged = Store::applyKevSnapshot($result['rows'], (int) $job['id']);
+                } elseif ($job['action'] === 'sync') {
                     foreach ($result['rows'] as $row) {
-                        $changed = in_array($job['code'], ['cisa','nvd','epss'], true)
+                        $changed = in_array($job['code'], ['nvd','epss'], true)
                             ? Store::vulnerability($job['code'], $row) : Store::indicator((int) $job['provider_id'], $row);
                         $unchanged += (int) !$changed;
                     }

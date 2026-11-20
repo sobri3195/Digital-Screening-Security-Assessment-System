@@ -275,10 +275,7 @@ final class Threat
             case 'reports:approve':
                 Auth::require($user, 'threat.report.approve');
                 $id = Catalog::id($_POST,'id');
-                if (!query('UPDATE ti_reports SET approved_at=NOW(),approver_id=? WHERE id=? AND approved_at IS NULL AND (user_id IS NULL OR user_id<>?)',
-                    [$uid,$id,$uid])->rowCount()) {
-                    throw new Http(422, 'Laporan tidak dapat disetujui oleh pembuatnya atau sudah disetujui.');
-                }
+                IntelligenceReports::approve($id, $uid);
                 break;
             case 'settings:save':
                 $days = (int) text_input($_POST,'history_days');
@@ -314,6 +311,8 @@ final class Threat
         if (!$row) {
             throw new Http(404, 'Kerentanan tidak ditemukan.');
         }
+        $row['kev_history'] = query('SELECT status,observed_at,sync_job_id,evidence_sha256 FROM ti_kev_history
+            WHERE vulnerability_id=? ORDER BY id DESC LIMIT 25', [$id])->fetchAll();
         $row['assets'] = $assetAccess ? query('SELECT av.*,a.code,a.title FROM ti_asset_vulnerabilities av JOIN institutional_assets a ON a.id=av.asset_id
             WHERE av.vulnerability_id=? ORDER BY av.id DESC LIMIT 100', [$id])->fetchAll() : [];
         return $row;

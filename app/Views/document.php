@@ -14,7 +14,12 @@ p { white-space: pre-wrap; overflow-wrap: break-word; }
         <tr><th scope="row">Tanggal pemeriksaan</th><td><?= escape($report['inspected_on']) ?></td></tr>
         <tr><th scope="row">Petugas</th><td><?= escape($report['officer']) ?></td></tr>
         <tr><th scope="row">Status</th><td><?= escape($report['state']) ?></td></tr>
+        <?php if (!empty($report['revision_of'])): ?>
+            <tr><th scope="row">Revisi dari</th><td><?= escape($report['revision_code'] ?? $report['revision_of']) ?></td></tr>
+            <tr><th scope="row">Alasan revisi</th><td><?= escape($report['revision_reason']) ?></td></tr>
+        <?php endif ?>
     </table>
+    <?php if (!empty($report['legacy_snapshot'])): ?><p>Dokumen lama. Metadata yang dapat dipulihkan dibekukan saat migrasi.</p><?php endif ?>
     <h3>Ringkasan hasil</h3><p><?= escape($report['notes']) ?></p>
     <h3>Tabel hasil pemeriksaan</h3>
     <?php if (!$results): ?><p>Belum ada data pemeriksaan untuk jenis dan tanggal ini.</p><?php else: ?>

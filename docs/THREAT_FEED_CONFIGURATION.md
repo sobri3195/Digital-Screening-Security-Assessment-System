@@ -13,3 +13,5 @@
 Pilih provider di Threat Feed Management, jalankan **Uji dan pratinjau**, lalu periksa Data Collection Monitor. Aktifkan jadwal setelah pratinjau berhasil. NVD memuat tujuh hari terakhir pada pengambilan pertama dan melanjutkan dari checkpoint dengan overlap satu menit. EPSS memakai batch CVE yang telah dipublikasikan oleh sumber tersebut. URLhaus, ThreatFox dan MalwareBazaar memerlukan akun yang memberikan akses institusional. Keluaran MalwareBazaar adalah metadata, tanpa sampel.
 
 Pasang aturan egress untuk tujuan tepat yang diperlukan: `raw.githubusercontent.com`, `services.nvd.nist.gov`, `api.first.org`, `urlhaus-api.abuse.ch`, `threatfox-api.abuse.ch`, `mb-api.abuse.ch`. Awasi status provider, tenggat data, dan log antrian. Uji koneksi tidak mengaktifkan jadwal.
+
+Sinkronisasi CISA KEV hanya merekonsiliasi keanggotaan setelah jumlah entri sesuai metadata, seluruh entri valid dan unik, serta tanggal rilis tidak mendahului snapshot terakhir. CVE yang keluar dari katalog tetap dapat ditemukan di detail kerentanan. Riwayat keanggotaan menyimpan bukti dan ID job untuk audit.

@@ -11,6 +11,7 @@ from sqlalchemy import URL, create_engine, event
 from sqlalchemy.exc import OperationalError
 
 from .models import Asset, Authorization, COMMON_MODULES, Module, Observation, PLATFORM_MODULES, Platform
+from .posture import evaluate
 
 
 def now() -> str:
@@ -51,11 +52,14 @@ class Database:
 
         with self.write() as c:
             version = c.exec_driver_sql("PRAGMA user_version").scalar_one()
-            if version not in range(3):
+            if version not in range(4):
                 raise InspectorError("Versi basis data lebih baru dari aplikasi ini.")
-            for target, filename in ((1, "001_initial.sql"), (2, "002_scoring_settings.sql")):
+            for target, filename in ((1, "001_initial.sql"), (2, "002_scoring_settings.sql"), (3, "003_report_revisions.sql")):
                 if version < target:
                     self._migration(c, filename)
+            if version < 3:
+                for session in c.exec_driver_sql("SELECT id FROM inspections WHERE status='closed'").scalars().all():
+                    self._freeze_report(c, session, legacy=True)
 
     @staticmethod
     def _migration(connection, name: str):
@@ -271,14 +275,20 @@ class Database:
             if result.rowcount != 1:
                 raise InspectorError("Sesi belum siap ditutup.")
             self.audit(c, session, "session_completed", {"reviewer": reviewer})
+            self._freeze_report(c, session)
 
     def review_finding(self, finding: str, status: str, reviewer: str, note: str):
         if status not in {"open", "pending", "verified", "false_positive", "mitigating", "resolved"}:
             raise InspectorError("Status temuan tidak valid.")
         with self.write() as c:
-            linked = c.exec_driver_sql("SELECT inspection_id FROM findings WHERE id=?", (finding,)).first()
+            linked = c.exec_driver_sql(
+                "SELECT i.id,i.status FROM findings f JOIN inspections i ON i.id=f.inspection_id WHERE f.id=?",
+                (finding,),
+            ).first()
             if linked is None:
                 raise InspectorError("Temuan tidak ditemukan.")
+            if linked[1] == "closed" and (not note.strip() or not reviewer.strip()):
+                raise InspectorError("Revisi sesi tertutup memerlukan peninjau dan alasan.")
             c.exec_driver_sql(
                 "UPDATE findings SET status=?,reviewer_code=?,review_note=?,updated_at=? WHERE id=?",
                 (status, reviewer, note, now(), finding),
@@ -289,22 +299,71 @@ class Database:
                 "finding_reviewed",
                 {"finding_id": finding, "status": status, "reviewer": reviewer},
             )
+            if linked[1] == "closed":
+                self._freeze_report(c, linked[0])
+
+    def _freeze_report(self, c, session: str, legacy=False):
+        record = self._session(c, session)
+        revision = c.exec_driver_sql(
+            "SELECT COALESCE(MAX(revision),0)+1 FROM inspection_report_revisions WHERE inspection_id=?", (session,)
+        ).scalar_one()
+        rule = dict(c.exec_driver_sql(
+            "SELECT * FROM scoring_rules WHERE version=?", (record["scoring_rule"],)
+        ).mappings().one())
+        snapshot = {
+            "revision": revision, "generated_at": now(), "legacy": legacy, "record": record,
+            "posture": evaluate(record, rule), "usb": self._report_usb(c, record),
+        }
+        c.exec_driver_sql(
+            "INSERT INTO inspection_report_revisions VALUES (?,?,?)", (session, revision, json_text(snapshot))
+        )
+        self.audit(c, session, "report_snapshot_saved", {"revision": revision, "legacy": legacy})
+
+    def report_revision(self, session: str, revision: int | None) -> dict:
+        row = self.one(
+            """SELECT snapshot FROM inspection_report_revisions WHERE inspection_id=? AND (? IS NULL OR revision=?)
+            ORDER BY revision DESC LIMIT 1""", (session, revision, revision)
+        )
+        if row is None:
+            raise InspectorError("Revisi laporan tidak ditemukan.")
+        return json.loads(row["snapshot"])
+
+    def report_usb(self, record: dict) -> list[dict]:
+        with self.engine.connect() as c:
+            return self._report_usb(c, record)
+
+    @staticmethod
+    def _report_usb(c, record: dict) -> list[dict]:
+        return [dict(row) for row in c.exec_driver_sql(
+            """SELECT event,category,manufacturer,model,driver_status,observed_at FROM usb_events
+            WHERE observed_at>=? AND observed_at<=? ORDER BY observed_at,id LIMIT 200""",
+            (record["started_at"], record["ended_at"]),
+        ).mappings()]
 
     def session(self, session: str) -> dict:
-        item = self.one(
+        with self.engine.connect() as c:
+            return self._session(c, session)
+
+    @staticmethod
+    def _session(c, session: str) -> dict:
+        def rows(statement, args):
+            return [dict(row) for row in c.exec_driver_sql(statement, args).mappings()]
+
+        matches = rows(
             """SELECT i.id,i.mode,i.status,i.created_at,i.started_at,i.ended_at,i.reviewer_code,i.scoring_rule,
             au.operator_code,au.reference,au.scope,au.local_host_confirmed,a.code AS asset_code,a.name AS asset_name,a.category AS platform,a.owner_unit
             FROM inspections i JOIN inspection_authorizations au ON au.id=i.authorization_id
             JOIN assets a ON a.id=au.asset_id WHERE i.id=?""",
             (session,),
         )
-        if not item:
+        if not matches:
             raise InspectorError("Sesi tidak ditemukan.")
-        item["tasks"] = self.rows(
+        item = matches[0]
+        item["tasks"] = rows(
             "SELECT module,status,notice,updated_at FROM inspection_tasks WHERE inspection_id=? ORDER BY rowid",
             (session,),
         )
-        evidence = self.rows(
+        evidence = rows(
             "SELECT * FROM technical_evidence WHERE inspection_id=? ORDER BY observed_at,id", (session,)
         )
         for entry in evidence:
@@ -327,10 +386,10 @@ class Database:
                 entry["payload"] = {"error": "Bukti tidak dapat dibaca."}
                 entry["verified_integrity"] = False
         item["evidence"] = evidence
-        item["findings"] = self.rows(
+        item["findings"] = rows(
             "SELECT * FROM findings WHERE inspection_id=? ORDER BY updated_at,id", (session,)
         )
-        item["timeline"] = self.rows(
+        item["timeline"] = rows(
             "SELECT sequence,event,occurred_at,detail,sha256 FROM audit_events WHERE inspection_id=? ORDER BY sequence",
             (session,),
         )

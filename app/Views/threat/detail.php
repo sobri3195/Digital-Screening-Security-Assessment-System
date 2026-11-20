@@ -20,6 +20,11 @@ if ($isIoc):
     <?php endforeach;
 elseif ($route === 'vulnerabilities'): ?>
     <p>Prioritas teknis <?= escape(Analysis::vulnerabilityPriority($detail)['score']) ?>/100. EPSS adalah estimasi kemungkinan eksploitasi CVE, bukan bukti kompromi aset.</p>
+    <?php if ($detail['kev_history']): ?>
+        <details class="ti-evidence"><summary>Riwayat keanggotaan CISA KEV</summary>
+            <?php $listing($detail['kev_history'], ['status'=>'Perubahan','observed_at'=>'Waktu sinkronisasi','sync_job_id'=>'Job','evidence_sha256'=>'SHA-256 bukti']); ?>
+        </details>
+    <?php endif ?>
     <?php $details($detail,['vendor'=>'Vendor','product'=>'Produk','description'=>'Deskripsi','cvss'=>'CVSS','cvss_vector'=>'Vektor CVSS','severity'=>'Keparahan',
         'published_at'=>'Publikasi','modified_at'=>'Diubah sumber','kev_added_on'=>'Masuk CISA KEV','kev_due_on'=>'Tenggat CISA','kev_action'=>'Tindakan dari CISA',
         'kev_ransomware'=>'Kampanye ransomware','epss'=>'Probabilitas EPSS','epss_percentile'=>'Persentil EPSS','epss_on'=>'Tanggal EPSS',

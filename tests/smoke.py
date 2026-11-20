@@ -158,12 +158,29 @@ report_fields = {"title": "SMOKE Report", "code": "SMOKE-R", "source": "kegiatan
                  "notes": "Report smoke", "inspected_on": "2026-11-15"}
 save("reports", state="draf", **report_fields)
 report = record_id(admin, "reports", "SMOKE Report")
-for state in ["diajukan", "disetujui"]:
-    save("reports", id=report, state=state, **report_fields)
+save("reports", id=report, state="diajukan", **report_fields)
+save("reports", 422, id=report, action="setujui")
+users, _ = request(admin, "/m/users")
+reviewer_role = re.search(rb'name="grants\[\]" value="(\d+)"[^>]+> Supervisor', users)[1].decode()
+save("users", title="SMOKE Reviewer", username="smoke-reviewer", active="1", password=PASSWORD, **{"grants[]": reviewer_role})
+reviewer = browser()
+reviewer_login, _ = request(reviewer, "/login")
+request(reviewer, "/login", 303, fields={"_csrf": csrf(reviewer_login), "username": "smoke-reviewer", "password": PASSWORD})
+reviewer_home, _ = request(reviewer, "/")
+request(reviewer, "/m/reports", 303, fields={"_csrf": csrf(reviewer_home), "id": report, "action": "setujui"})
 preview, _ = request(admin, f"/reports/{report}")
 assert b"Report smoke" in preview and b"SMOKE-K" in preview and b"data:image/png;base64," in preview
 pdf, headers = request(admin, f"/reports/{report}/pdf")
 assert pdf.startswith(b"%PDF-") and len(pdf) > 1000 and headers["Content-Type"].startswith("application/pdf")
+reviewer_profile, _ = request(reviewer, "/profile")
+request(reviewer, "/profile", 303, fields={"_csrf": csrf(reviewer_profile), "action": "name", "current": PASSWORD, "title": "SMOKE New Reviewer"})
+save("system_settings", title="institution_name", value="SMOKE New Institution")
+updated_preview, _ = request(admin, f"/reports/{report}")
+article = rb'<article class="document">.*?</article>'
+assert re.search(article, updated_preview, re.S)[0] == re.search(article, preview, re.S)[0]
+save("reports", id=report, action="revisi", revision_code="SMOKE-R-2", revision_reason="SMOKE Correction")
+revision = record_id(admin, "reports", "SMOKE Report")
+assert revision != report and b"SMOKE Correction" in request(admin, f"/reports/{revision}")[0]
 
 save("api_clients", title="SMOKE Desktop", active=1, scopes="assets.read")
 client_page, _ = request(admin, "/m/api_clients")
@@ -211,6 +228,9 @@ profile = request(auditor, "/profile")[0]
 request(auditor, "/profile", 303, fields={"_csrf": csrf(profile), "current": PASSWORD, "action": "totp-start"})
 profile = request(auditor, "/profile")[0]
 secret = re.search(rb'<code>([A-Z2-7]{32})</code>', profile)[1].decode()
+near_expiry = time.time() % 30
+if near_expiry > 27:
+    time.sleep(30 - near_expiry + .1)
 step = int(time.time()) // 30
 request(auditor, "/profile", 303, fields={"_csrf": csrf(profile), "current": PASSWORD,
         "action": "totp-confirm", "totp": totp(secret, step - 1)})

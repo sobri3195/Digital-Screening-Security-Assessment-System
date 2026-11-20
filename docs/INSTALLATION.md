@@ -68,3 +68,11 @@ location ~ /\. { deny all; }
 Sesuaikan jalur socket dengan versi PHP, set `APP_SECURE_COOKIE=1`, `upload_max_filesize=10M` dan `post_max_size=12M`. Tambahkan HSTS bila sertifikat telah dipercaya klien. Pastikan `display_errors=Off` dan batasi akses log. Apache Linux dapat menggunakan pola virtual host di atas dengan jalur Linux dan HTTPS.
 
 Untuk pengembangan, jalankan `php -d upload_max_filesize=10M -d post_max_size=12M -S 127.0.0.1:8080 -t public bin/router.php`. Verifikasi halaman login dan `/api/v1/health`.
+
+## Deployment per unit
+
+Sediakan satu virtual host HTTPS, proses PHP dengan akun OS, checkout privat, direktori sesi, dan database per unit. Beri akun database aplikasi akses hanya ke skema unitnya, termasuk izin baca pada `deployment_unit`. Set `APP_UNIT` pada masing-masing konfigurasi, misalnya `unit-a`, dan gunakan `APP_KEY` unik. Jalankan `php bin/setup.php migrate`, lalu `php bin/setup.php unit-bind` dengan akun yang berwenang menulis database dan storage. Setelah itu, buat akun awal dan kredensial API dari instance unit tersebut.
+
+`unit-bind` mengikat kode unit pada database dan penyimpanan checkout. Aplikasi menolak koneksi jika binding berbeda atau tidak lengkap. Biarkan `APP_UNIT` kosong untuk mempertahankan instalasi lama dengan satu ruang data. Untuk memisahkan instalasi yang sudah memuat beberapa unit, siapkan database dan akun baru per unit lalu pindahkan data yang sudah disortir oleh operator sebelum mengikatnya. Binding tidak memindahkan data lama.
+
+Buat konfigurasi worker Threat Intelligence per instance. Jika AI digunakan, sediakan gateway, SQLite, kunci delegasi, dan daftar token workstation per unit. Gunakan akun OS atau workstation terpisah untuk database Desktop. Uji pencarian, rincian, CSV, dan token API dengan data sintetis dari dua unit sebelum membuka akses.
