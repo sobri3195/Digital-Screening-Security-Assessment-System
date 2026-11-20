@@ -3,7 +3,7 @@
   "framework": null,
   "installCommand": "",
   "buildCommand": "",
-  "outputDirectory": "vercel-preview",
+  "outputDirectory": "public/.vercel-preview",
   "rewrites": [
     {
       "source": "/",

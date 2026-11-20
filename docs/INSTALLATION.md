@@ -61,6 +61,7 @@ location = /index.php {
     fastcgi_pass unix:/run/php/php8.3-fpm.sock;
 }
 location ~ \.php$ { return 404; }
+location = /vercel.json { return 404; }
 location ~ /\. { deny all; }
 ```
 

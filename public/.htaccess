@@ -1,5 +1,6 @@
 Options -Indexes
 DirectoryIndex index.php
 RewriteEngine On
+RewriteRule ^(?:\.vercel-preview(?:/|$)|vercel\.json$) - [R=404,L]
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteRule ^ index.php [L]
