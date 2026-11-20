@@ -100,6 +100,7 @@ final class Ai
     {
         $action = text_input($_POST, 'action');
         $target = '/ai/' . $route;
+        $notice = 'Permintaan AI diterima.';
         if ($action === 'enqueue' && ($route === 'assistant' || isset(self::ANALYSIS_SCOPES[$route]))) {
             $kind = $route === 'assistant' ? text_input($_POST,'kind') : $route;
             if (!isset(self::ANALYSIS_SCOPES[$kind])) {
@@ -126,6 +127,26 @@ final class Ai
                 throw new Http(422, 'Masukkan dokumen teknis sebagai objek JSON.');
             }
             $call('POST','/knowledge/documents',$document);
+        } elseif ($route === 'knowledge' && $action === 'import_cve') {
+            Auth::require($user,'ai.knowledge.manage');
+            Auth::require($user,'threat.vulnerability.view');
+            $cve = strtoupper(text_input($_POST, 'cve'));
+            if (!preg_match('/^CVE-[0-9]{4}-[0-9]{4,19}$/D', $cve)) {
+                throw new Http(422, 'ID CVE tidak valid.');
+            }
+            $created = $skipped = 0;
+            foreach (\Sentinel\Services\Ai\CveDrafts::forCve($cve) as $document) {
+                try {
+                    $call('POST','/knowledge/documents',$document);
+                    $created++;
+                } catch (Http $error) {
+                    if (!in_array($error->status, [409,422], true) && $created === 0) {
+                        throw $error;
+                    }
+                    $skipped++;
+                }
+            }
+            $notice = "$created draf TI disimpan, $skipped tidak diterima. Draf memerlukan peninjauan.";
         } elseif ($route === 'knowledge' && $action === 'source') {
             Auth::require($user, 'ai.knowledge.manage');
             $source = text_input($_POST,'source');
@@ -135,12 +156,19 @@ final class Ai
             $call('PUT','/knowledge/sources/' . $source,['enabled'=>text_input($_POST,'enabled') === '1']);
         } elseif (in_array($route,['knowledge','rag'],true) && in_array($action,['approve','archive','index'],true)) {
             Auth::require($user,'ai.knowledge.approve');
-            if ($action === 'index') {
-                Auth::require($user,'ai.knowledge.manage');
-            }
             $doc = self::id($_POST['id'] ?? '');
             $payload = $action === 'approve' ? ['reviewed'=>text_input($_POST,'reviewed') === '1','embed'=>text_input($_POST,'embed') === '1'] : null;
-            $answer = $call('POST','/knowledge/documents/' . $doc . '/' . $action,$payload);
+            try {
+                $answer = $call('POST','/knowledge/documents/' . $doc . '/' . $action,$payload);
+            } catch (Http $error) {
+                if ($action !== 'index' || $error->status !== 429) {
+                    throw $error;
+                }
+                $answer = ['index_request'=>'deferred'];
+            }
+            if (($answer['index_request'] ?? '') === 'deferred') {
+                $notice = 'Dokumen tetap disetujui. Antrean embedding penuh. Coba indeks ulang setelah antrean tersedia.';
+            }
             if (isset($answer['id']) || !empty($answer['index_job'])) {
                 $target = '/ai/tasks/' . self::id($answer['id'] ?? $answer['index_job']);
             }
@@ -163,6 +191,12 @@ final class Ai
         } elseif ($route === 'evaluation' && $action === 'run') {
             $answer = $call('POST','/evaluation');
             $target = '/ai/tasks/' . self::id($answer['id'] ?? '');
+        } elseif ($route === 'settings' && $action === 'template_propose') {
+            Auth::require($user,'ai.template.manage');
+            $call('POST','/templates',['profile'=>text_input($_POST,'profile')]);
+        } elseif ($route === 'settings' && $action === 'template_approve') {
+            Auth::require($user,'ai.template.approve');
+            $call('POST','/templates/' . self::id($_POST['id'] ?? '') . '/approve');
         } elseif ($route === 'settings' && $action === 'retention') {
             if (text_input($_POST, 'confirm') !== '1') {
                 throw new Http(422, 'Konfirmasikan penerapan retensi.');
@@ -171,7 +205,7 @@ final class Ai
         } else {
             throw new Http(405,'Aksi AI tidak tersedia.');
         }
-        $_SESSION['notice'] = 'Permintaan AI diterima.';
+        $_SESSION['notice'] = $notice;
         Http::redirect($target);
     }
 

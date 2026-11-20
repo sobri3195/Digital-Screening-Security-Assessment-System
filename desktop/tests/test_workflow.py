@@ -82,6 +82,29 @@ def test_closed_report_preserves_preceding_revision(db, tmp_path):
     assert db.verify_audit()
 
 
+def test_recover_interrupted_session_keeps_finished_evidence(db):
+    from sentinel_inspector.platforms import mobile
+
+    modules = {Module.ANDROID, Module.FILES}
+    session = db.create(authorized(db, list(modules)))
+    with db.session_lock(session):
+        db.start(session, modules)
+        db.running(session, Module.ANDROID)
+        observation = mobile("android", (MobileCheck(control="screen_lock", state="pass"),))
+        db.finish_task(session, Module.ANDROID, "complete", "TEST complete", [observation])
+        db.running(session, Module.FILES)
+        with pytest.raises(InspectorError, match="proses lain"):
+            Database(db.path).recover_interrupted(session)
+    reopened = Database(db.path)
+    reopened.recover_interrupted(session)
+    record = reopened.session(session)
+    assert record["status"] == "review"
+    assert {entry["module"]: entry["status"] for entry in record["tasks"]} == {"android": "complete", "files": "failed"}
+    assert len(record["evidence"]) == 1 and record["evidence"][0]["verified_integrity"]
+    reopened.close(session, "TEST.REV")
+    assert reopened.report_revision(session, 1)["record"]["evidence"] == record["evidence"]
+
+
 def test_workspace_reports_audit_and_mobile_findings(db, tmp_path):
     modules = {Module.ANDROID, Module.FILES}
     session = db.create(authorized(db, list(modules)))

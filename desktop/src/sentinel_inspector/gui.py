@@ -646,6 +646,9 @@ class InspectorWindow(QMainWindow):
             ("Tutup sesi", self.close_session),
         ):
             row.addWidget(self.button(label, action))
+        self.recover_button = self.button("Pulihkan sesi terputus", self.recover_session)
+        self.recover_button.setEnabled(False)
+        row.addWidget(self.recover_button)
         pane.addLayout(row)
 
     def clear_session_inputs(self):
@@ -775,6 +778,7 @@ class InspectorWindow(QMainWindow):
         record = self.db.session(session)
         self.session_id = session
         self.session_data = record
+        self.recover_button.setEnabled(record["status"] == "running")
         self.report_version.clear()
         if record["status"] == "closed":
             versions = self.db.rows(
@@ -905,6 +909,15 @@ class InspectorWindow(QMainWindow):
         code, ok = QInputDialog.getText(self, "Tutup sesi", "Kode petugas peninjau:")
         if ok:
             self.db.close(session, TypeAdapter(Code).validate_python(code))
+            self.load_session(session)
+            self.refresh()
+
+    def recover_session(self):
+        session = self.require_session()
+        if QMessageBox.question(
+            self, "Pulihkan sesi", "Akhiri modul yang terputus dan pertahankan bukti untuk ditinjau?"
+        ) == QMessageBox.StandardButton.Yes:
+            self.db.recover_interrupted(session)
             self.load_session(session)
             self.refresh()
 

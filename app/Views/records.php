@@ -137,10 +137,21 @@ $columns = array_slice($fields, 0, 4, true);
     <?php endforeach ?>
     </dl>
     <?php if ($special === 'checklist'): ?><h3>Hasil checklist</h3><dl class="detail-grid">
-        <?php foreach ($data['extras']['items'] as $item): ?><dt><?= escape($item['title']) ?></dt>
-            <dd><?= escape(str_replace('_', ' ', $data['extras']['results'][$item['id']] ?? 'belum_diperiksa')) ?></dd>
+        <?php foreach ($data['extras']['items'] as $item): ?>
+            <?php $check = $data['extras']['results'][$item['id']] ?? 'belum_diperiksa'; ?>
+            <dt><?= escape($item['title']) ?></dt>
+            <dd><?= escape(str_replace('_', ' ', $check)) ?>
+                <?php if ($check === 'tidak_memenuhi'): ?><p><?= escape(Records::CHECK_RECOMMENDATIONS[$item['title']] ?? 'Tinjau dan dokumentasikan perbaikan kontrol ini.') ?></p>
+                <?php elseif ($check === 'belum_diperiksa'): ?><p>Verifikasi kontrol dan catat bukti pemeriksaan.</p><?php endif ?>
+            </dd>
         <?php endforeach ?>
     </dl><?php endif ?>
+    <?php if ($write && $special === 'file' && config('CLAMD_SOCKET') !== ''): ?>
+        <form method="post" action="<?= escape($base) ?>" class="actions">
+            <input type="hidden" name="_csrf" value="<?= $csrf ?>"><input type="hidden" name="id" value="<?= escape($record['id']) ?>">
+            <button class="btn btn-outline-secondary" name="action" value="scan_again">Pindai ulang dengan ClamAV</button>
+        </form>
+    <?php endif ?>
     <?php if ($special === 'file' && Auth::allows($user, 'threat.scan.execute') && !empty($record['sha256'])): ?>
         <form method="post" action="/threat/hashes" class="actions">
             <input type="hidden" name="_csrf" value="<?= $csrf ?>">
@@ -179,6 +190,18 @@ $columns = array_slice($fields, 0, 4, true);
             </details>
         <?php endif ?>
     <?php endif ?>
+    <?php if (!empty($data['extras']['vulnerabilities'])): ?><h3>Kerentanan terkait</h3><ul>
+        <?php foreach ($data['extras']['vulnerabilities'] as $cve): ?>
+            <li><a href="/threat/vulnerabilities?id=<?= escape($cve['id']) ?>"><?= escape($cve['cve']) ?></a></li>
+        <?php endforeach ?>
+    </ul><?php endif ?>
+    <?php if (!empty($data['extras']['desktop'])): ?><h3>Ringkasan Device Inspector</h3><ul class="activity-list">
+        <?php foreach ($data['extras']['desktop'] as $desktop): ?>
+            <li><span>Revisi <?= escape($desktop['revision']) ?> · <?= escape($desktop['finding_count']) ?> temuan ·
+                <?= escape($desktop['tasks_completed']) ?>/<?= escape($desktop['tasks_total']) ?> modul · Cakupan <?= escape($desktop['coverage']) ?>%</span>
+                <time><?= escape($desktop['received_at']) ?></time><code><?= escape($desktop['report_sha256']) ?></code></li>
+        <?php endforeach ?>
+    </ul><?php endif ?>
     <?php if (isset($data['extras']['history'])): ?><h3>Riwayat</h3><ul class="activity-list">
         <?php foreach ($data['extras']['history'] as $event): ?><li><span><?= escape($event['notes']) ?></span><time><?= escape($event['created_at']) ?></time></li><?php endforeach ?>
     </ul><?php endif ?>

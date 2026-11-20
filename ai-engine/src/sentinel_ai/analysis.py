@@ -313,11 +313,12 @@ def response(job: str, kind: str, bundle: Bundle, plan: Plan | None, model: dict
 
 
 async def analyze(
-    job: str, data: dict, internal: bool, retrieval: Retrieval, runtime: Ollama, settings: Settings
+    job: str, data: dict, internal: bool, retrieval: Retrieval, runtime: Ollama, settings: Settings, *,
+    template: dict | None = None, model: dict | None = None, semantic: bool = True,
 ):
     data = REQUEST.validate_python(data).model_dump(mode="json")
     started = perf_counter()
-    bundle = await build_bundle(retrieval, data, internal, settings.freshness_days)
+    bundle = await build_bundle(retrieval, data, internal, settings.freshness_days, semantic=semantic)
     retrieval_ms = round((perf_counter() - started) * 1000, 2)
     if not bundle.references:
         return (
@@ -325,13 +326,14 @@ async def analyze(
             {"retrieval_ms": retrieval_ms},
             None,
         )
-    approved = retrieval.store.active("inference")
+    approved = model if model is not None else retrieval.store.active("inference")
     if not approved:
         raise RuntimeFailure("model_not_configured")
     # Only projections typed by the gateway reach inference. Raw source bodies, input indicators, links and identifiers of operators stay outside.
     typed = {"analysis_type": data["kind"], "facts": bundle.facts, "allowed_action_ids": list(bundle.actions)}
+    profile = TEMPLATE_PROFILES.get(template["profile"], "") if template else ""
     raw, metrics = await runtime.generate(
-        approved, SYSTEM, json.dumps(typed, ensure_ascii=False), plan_schema(bundle)
+        approved, SYSTEM + profile, json.dumps(typed, ensure_ascii=False), plan_schema(bundle)
     )
     plan = validate_plan(raw, bundle)
     if not any(item["references"] for item in bundle.facts if item["id"] in plan.fact_ids):
@@ -340,7 +342,16 @@ async def analyze(
         retrieval_ms=retrieval_ms,
         cited_sources=sum(bool(fact["references"]) for fact in bundle.facts if fact["id"] in plan.fact_ids),
     )
-    return response(job, data["kind"], bundle, plan, approved), metrics, approved
+    result = response(job, data["kind"], bundle, plan, approved)
+    if template:
+        result["template_version"] += ":" + template["id"]
+    return result, metrics, approved
+
+
+TEMPLATE_PROFILES = {
+    "evidence_first": " Prioritize facts that are directly backed by a supplied reference.",
+    "mitigation_first": " Prioritize referenced facts relevant to the permitted mitigation actions.",
+}
 
 
 async def benchmark(retrieval: Retrieval, runtime: Ollama, model_id: str | None = None):

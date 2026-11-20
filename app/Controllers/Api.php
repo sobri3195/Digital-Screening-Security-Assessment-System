@@ -16,7 +16,7 @@ final class Api
     ];
     public static function scopes(): array
     {
-        return ['assets.read','inspections.read','checklists.read','findings.read','reports.read',...((require BASE . '/config/threat.php')['permissions']),...Gateway::scopes()];
+        return ['assets.read','inspections.read','checklists.read','findings.read','reports.read','threat.desktop.upload',...((require BASE . '/config/threat.php')['permissions']),...Gateway::scopes()];
     }
 
     public static function handle(string $path): never

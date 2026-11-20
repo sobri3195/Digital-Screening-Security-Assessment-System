@@ -8,6 +8,32 @@ use Sentinel\Core\Http;
 
 final class AdvisoryImport
 {
+    public static function store(string $code, array $entries): int
+    {
+        if (!in_array($code, ['bssn','kemkes'], true)) {
+            throw new Http(422, 'Pilih publikasi resmi BSSN atau Kemenkes.');
+        }
+        $provider = Store::provider($code);
+        $publisher = $code === 'bssn' ? 'BSSN' : 'Kemenkes CSIRT';
+        $domain = $code === 'bssn' ? 'bssn.go.id' : 'kemkes.go.id';
+        Store::transaction(static function () use ($entries,$code,$provider,$publisher,$domain): void {
+            foreach ($entries as $entry) {
+                $entry['healthcare'] = $code === 'kemkes';
+                if (($entry['reference'] ?? '') !== '') {
+                    $host = strtolower((string) parse_url($entry['reference'], PHP_URL_HOST));
+                    if ($host !== $domain && !str_ends_with($host, '.' . $domain)) {
+                        throw new Http(422, 'Rujukan advisori berada di luar organisasi penerbit.');
+                    }
+                }
+                $id = Store::advisory((int) $provider['id'], $publisher, $entry);
+                if ($entry['healthcare']) {
+                    Store::alert('healthcare:' . $id,'advisori','Advisori kesehatan perlu ditinjau','medium','/threat/advisories?id=' . $id);
+                }
+            }
+        });
+        return count($entries);
+    }
+
     public static function upload(array $file, string $format): array
     {
         if (($file['error'] ?? null) !== UPLOAD_ERR_OK || !is_uploaded_file($file['tmp_name'] ?? '')) {

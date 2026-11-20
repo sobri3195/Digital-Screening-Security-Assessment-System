@@ -105,6 +105,11 @@ cve_id = re.search(rb'/threat/vulnerabilities\?id=(\d+)', cve_list)[1].decode()
 _, response = form("/threat/vulnerabilities", "match", id=cve_id)
 candidate, _ = get(admin,response["Location"])
 assert b"TEST-TI-ASSET" in candidate and b"potensial" in candidate
+form("/m/security_incidents", "simpan", title="TEST linked incident", state="terbuka")
+incident_list, _ = get(admin, "/m/security_incidents?q=TEST+linked+incident")
+incident_id = re.search(rb'/m/security_incidents\?id=(\d+)', incident_list)[1].decode()
+form("/threat/vulnerabilities", "link-incident", id=cve_id, incident=incident_id)
+assert b"CVE-2099-12345" in get(admin, "/m/security_incidents?id=" + incident_id)[0]
 
 _, response = form("/threat/reports", "create", kind="url", scan_id=scan)
 report_path = response["Location"]
@@ -122,7 +127,7 @@ get(auditor, "/threat/scan", 403)
 get(auditor, report_path + "/pdf", 403)
 
 get(admin, "/m/api_clients", 303, urllib.parse.urlencode({"_csrf": csrf, "title": "TEST TI Client", "active": "1",
-    "scopes": "threat.dashboard.view,threat.scan.execute,threat.indicator.view"}).encode())
+    "scopes": "threat.dashboard.view,threat.scan.execute,threat.indicator.view,threat.desktop.upload"}).encode())
 page, _ = get(admin, "/m/api_clients")
 client_id, secret = re.search(rb'ID klien (\d+).*?<code>([a-f0-9]{64})</code>', page, re.S).groups()
 api = client()
@@ -140,4 +145,18 @@ assert json.loads(result)["data"]["matches"]
 get(api,prefix + "scan",422,b'{"indicator":"http://user:secret@example.test"}',auth)
 get(api,prefix + "providers",403,extra=auth)
 get(api,prefix + "sync",403,b'{"provider":"cisa"}',auth)
+desktop = {
+    "schema":"sentinel-inspection-v1","asset_code":"TEST-TI-ASSET","session_id":"a"*32,"revision":1,
+    "report_sha256":"b"*64,"score":None,"coverage":50,"finding_count":1,"tasks_completed":1,"tasks_total":2,
+}
+route = prefix + "desktop-results"
+get(api,route,401,json.dumps(desktop).encode(),{"Content-Type":"application/json"})
+current, _ = get(api,route,201,json.dumps(desktop).encode(),auth)
+repeated, _ = get(api,route,200,json.dumps(desktop).encode(),auth)
+assert json.loads(repeated)["data"] == {"id":json.loads(current)["data"]["id"],"state":"already_received"}
+get(api,route,409,json.dumps(desktop | {"finding_count":2}).encode(),auth)
+get(api,route,422,json.dumps(desktop | {"content":"unexpected raw data"}).encode(),auth)
+asset_page, _ = get(admin, "/m/institutional_assets?q=TEST+TI+Asset")
+asset_id = re.search(rb'/m/institutional_assets\?id=(\d+)', asset_page)[1].decode()
+assert b"Ringkasan Device Inspector" in get(admin, "/m/institutional_assets?id=" + asset_id)[0]
 print(f"{COUNT} Phase 2 HTTP checks passed.")

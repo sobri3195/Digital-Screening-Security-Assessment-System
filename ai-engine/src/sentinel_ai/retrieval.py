@@ -143,27 +143,29 @@ class Retrieval:
         )
         if not rows:
             raise RuntimeFailure("document_not_approved")
-        count = 0
+        vectors = []
         for at in range(0, len(rows), 8):
             group = rows[at : at + 8]
             result = await embed([row["body"] for row in group])
-            with self.store.write() as conn:
-                state = conn.exec_driver_sql("SELECT state FROM documents WHERE id=?", (doc_id,)).scalar()
-                if state != "approved":
-                    raise RuntimeFailure("document_not_approved")
-                for item, vector in zip(group, result):
-                    conn.exec_driver_sql(
-                        """INSERT INTO embeddings VALUES(?,?,?,?)
-                        ON CONFLICT(chunk_id,model_digest) DO UPDATE SET vector=excluded.vector,size=excluded.size""",
-                        (item["id"], digest, vector.size, vector.tobytes()),
-                    )
-                    count += 1
+            vectors.extend((item["id"], digest, vector.size, vector.tobytes()) for item, vector in zip(group, result, strict=True))
         with self.store.write() as conn:
+            approved = conn.exec_driver_sql(
+                """SELECT 1 FROM documents d JOIN sources s ON s.code=d.source_code
+                WHERE d.id=? AND d.state='approved' AND s.enabled=1""",
+                (doc_id,),
+            ).scalar()
+            if not approved:
+                raise RuntimeFailure("document_not_approved")
+            conn.exec_driver_sql(
+                """INSERT INTO embeddings VALUES(?,?,?,?)
+                ON CONFLICT(chunk_id,model_digest) DO UPDATE SET vector=excluded.vector,size=excluded.size""",
+                vectors,
+            )
             conn.exec_driver_sql(
                 "UPDATE documents SET index_status='hybrid',updated_at=? WHERE id=? AND state='approved'",
                 (utc(), doc_id),
             )
-        return {"indexed_chunks": count, "embedding_digest": digest}
+        return {"indexed_chunks": len(vectors), "embedding_digest": digest}
 
 
 def freshness(published: str, days: int) -> bool:

@@ -69,6 +69,12 @@ Sesuaikan jalur socket dengan versi PHP, set `APP_SECURE_COOKIE=1`, `upload_max_
 
 Untuk pengembangan, jalankan `php -d upload_max_filesize=10M -d post_max_size=12M -S 127.0.0.1:8080 -t public bin/router.php`. Verifikasi halaman login dan `/api/v1/health`.
 
+## ClamAV untuk pemeriksaan file
+
+Set `CLAMD_SOCKET` ke jalur absolut socket Unix lokal milik `clamd`. Beri akun PHP izin koneksi pada socket tersebut, pasang basis signature yang disetujui, dan atur `StreamMaxLength` minimal 10 MiB. Aktifkan `AlertExceedsMax` bila kebijakan unit mewajibkan operator meninjau pemindaian yang mencapai batas engine. Gunakan data uji yang aman untuk menguji upload dan pemindaian ulang.
+
+File dikirim ke socket lokal sebagai stream dan tetap tersimpan privat sesuai retensi. Status mengidentifikasi hasil deteksi, kegagalan, atau engine yang tidak tersedia. Hasil tidak terdeteksi berlaku untuk signature dan cakupan engine saat pemindaian.
+
 ## Deployment per unit
 
 Sediakan satu virtual host HTTPS, proses PHP dengan akun OS, checkout privat, direktori sesi, dan database per unit. Beri akun database aplikasi akses hanya ke skema unitnya, termasuk izin baca pada `deployment_unit`. Set `APP_UNIT` pada masing-masing konfigurasi, misalnya `unit-a`, dan gunakan `APP_KEY` unik. Jalankan `php bin/setup.php migrate`, lalu `php bin/setup.php unit-bind` dengan akun yang berwenang menulis database dan storage. Setelah itu, buat akun awal dan kredensial API dari instance unit tersebut.

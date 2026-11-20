@@ -6,28 +6,52 @@ use Sentinel\Core\Http;
 
 final class Queue
 {
-    public static function enqueue(string $code, string $action, ?int $user): int
+    public static function enqueue(string $code, string $action, ?int $user, ?array $history = null): int
     {
-        if (!in_array($code, Feeds::AUTOMATED, true) || !Feeds::configured($code) || !in_array($action, ['sync','preview'], true)) {
+        if (!in_array($code, Feeds::AUTOMATED, true) || !Feeds::configured($code)
+            || (!in_array($action, ['sync','preview'], true) && !($action === 'backfill' && $code === 'nvd' && $history !== null))) {
             throw new Http(422, 'Provider otomatis atau kredensial belum dikonfigurasi.');
         }
-        return Store::transaction(static function () use ($code, $action, $user): int {
+        return Store::transaction(static function () use ($code, $action, $user, $history): int {
             $provider = query('SELECT * FROM ti_providers WHERE code=? FOR UPDATE', [$code])->fetch();
-            if (!$provider || ($action === 'sync' && !$provider['enabled'])) {
+            if (!$provider || ($action !== 'preview' && !$provider['enabled'])) {
                 throw new Http(422, 'Aktifkan provider sebelum sinkronisasi.');
             }
-            $pending = query("SELECT id FROM ti_sync_jobs WHERE provider_id=? AND action=? AND state IN ('queued','running','retry') ORDER BY id LIMIT 1",
-                [$provider['id'], $action])->fetchColumn();
+            $pending = query("SELECT id,checkpoint FROM ti_sync_jobs WHERE provider_id=? AND action=? AND state IN ('queued','running','retry') ORDER BY id LIMIT 1",
+                [$provider['id'], $action])->fetch();
             if ($pending) {
-                return (int) $pending;
+                if ($action === 'backfill' && (json_decode($pending['checkpoint'], true)['history_range'] ?? null) !== $history['history_range']) {
+                    throw new Http(409, 'Backfill dengan rentang berbeda masih berjalan.');
+                }
+                return (int) $pending['id'];
             }
-            $checkpoint = $action === 'sync' ? $provider['checkpoint'] : null;
+            $checkpoint = match ($action) {
+                'sync' => $provider['checkpoint'], 'backfill' => Store::json($history), default => null,
+            };
             query('INSERT INTO ti_sync_jobs (provider_id,requested_by,action,checkpoint) VALUES (?,?,?,?)', [$provider['id'], $user, $action, $checkpoint]);
             $id = (int) db()->lastInsertId();
-            self::log($id, 'queued', $action === 'sync' ? 'Sinkronisasi dijadwalkan.' : 'Uji koneksi dan parser dijadwalkan.');
+            self::log($id, 'queued', match ($action) {
+                'sync' => 'Sinkronisasi dijadwalkan.', 'backfill' => 'Pengisian riwayat NVD dijadwalkan.',
+                default => 'Uji koneksi dan parser dijadwalkan.',
+            });
             audit($user, 'jadwalkan-' . $action, 'threat');
             return $id;
         });
+    }
+
+    public static function nvdBackfill(string $from, string $through): int
+    {
+        if (Store::date($from) !== $from || Store::date($through) !== $through || $from > $through) {
+            throw new Http(422, 'Masukkan rentang tanggal YYYY-MM-DD yang valid.');
+        }
+        $start = strtotime($from . 'T00:00:00Z');
+        $end = strtotime($through . 'T23:59:59Z');
+        if ($start === false || $end === false || $start > time()) {
+            throw new Http(422, 'Tanggal riwayat NVD tidak valid.');
+        }
+        return self::enqueue('nvd','backfill',null,[
+            'history_start'=>$start,'history_end'=>min($end,time()),'history_range'=>$from . '/' . $through,
+        ]);
     }
 
     public static function schedule(): int
@@ -79,7 +103,7 @@ final class Queue
 
     private static function run(array $job, ?callable $fetch): void
     {
-        if ($job['action'] === 'sync' && !$job['enabled']) {
+        if ($job['action'] !== 'preview' && !$job['enabled']) {
             self::finish($job, 'cancelled', 'Provider dinonaktifkan.', 0);
             return;
         }
@@ -91,14 +115,14 @@ final class Queue
                 if ($lease !== $job['lease_token']) {
                     return;
                 }
-                if ($job['action'] === 'sync' && !$provider['enabled']) {
+                if ($job['action'] !== 'preview' && !$provider['enabled']) {
                     self::finish($job, 'cancelled', 'Provider dinonaktifkan.', 0);
                     return;
                 }
                 $unchanged = 0;
                 if ($job['action'] === 'sync' && $job['code'] === 'cisa') {
                     $unchanged = Store::applyKevSnapshot($result['rows'], (int) $job['id']);
-                } elseif ($job['action'] === 'sync') {
+                } elseif ($job['action'] !== 'preview') {
                     foreach ($result['rows'] as $row) {
                         $changed = in_array($job['code'], ['nvd','epss'], true)
                             ? Store::vulnerability($job['code'], $row) : Store::indicator((int) $job['provider_id'], $row);

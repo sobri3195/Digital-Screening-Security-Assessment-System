@@ -54,9 +54,13 @@ class Store:
 
         with self.write() as c:
             version = c.exec_driver_sql("PRAGMA user_version").scalar_one()
-            if version == 0:
+            if version not in (0, 1, 2):
+                raise ValueError("Unsupported AI database schema")
+            for target, filename in ((1, "001_initial.sql"), (2, "002_templates.sql")):
+                if version >= target:
+                    continue
                 text = (
-                    files("sentinel_ai").joinpath("migrations", "001_initial.sql").read_text(encoding="utf-8")
+                    files("sentinel_ai").joinpath("migrations", filename).read_text(encoding="utf-8")
                 )
                 partial = ""
                 for line in text.splitlines(keepends=True):
@@ -66,10 +70,9 @@ class Store:
                         partial = ""
                 if partial.strip():
                     raise ValueError("Invalid migration")
-                for code, (title, _) in TRUSTED_SOURCES.items():
-                    c.exec_driver_sql("INSERT INTO sources(code,title) VALUES (?,?)", (code, title))
-            elif version != 1:
-                raise ValueError("Unsupported AI database schema")
+                if target == 1:
+                    for code, (title, _) in TRUSTED_SOURCES.items():
+                        c.exec_driver_sql("INSERT INTO sources(code,title) VALUES (?,?)", (code, title))
 
     @contextmanager
     def write(self):
@@ -146,7 +149,7 @@ class Store:
             raise AccessError(409, "duplicate_document") from None
         return doc_id
 
-    def approve_document(self, doc_id: str, actor: Actor, embed=False) -> str | None:
+    def approve_document(self, doc_id: str, actor: Actor, embed=False) -> dict:
         with self.write() as c:
             row = (
                 c.exec_driver_sql(
@@ -176,7 +179,36 @@ class Store:
                 (actor.subject, utc(), doc_id),
             )
             self.audit(c, actor.subject, "document_approved", doc_id)
-        return self.queue(actor, "index", {"document_id": doc_id}, priority=1) if embed else None
+            result = {"state": "approved", "index_status": "keyword", "index_request": "not_requested", "index_job": None}
+            if embed:
+                try:
+                    result["index_job"] = self._enqueue(c, actor, "index", {"document_id": doc_id}, 1)
+                    result["index_request"] = "queued"
+                except AccessError as error:
+                    if error.code != "queue_full":
+                        raise
+                    result["index_request"] = "deferred"
+                    self.audit(c, actor.subject, "index_deferred", doc_id, "queue_full")
+            return result
+
+    def retry_index(self, doc_id: str, actor: Actor) -> dict:
+        with self.write() as c:
+            state = c.exec_driver_sql(
+                """SELECT d.state,s.enabled FROM documents d JOIN sources s ON s.code=d.source_code WHERE d.id=?""",
+                (doc_id,),
+            ).first()
+            if state is None:
+                raise AccessError(404, "document_not_found")
+            if state[0] != "approved" or not state[1]:
+                raise AccessError(409, "document_not_approved")
+            existing = c.exec_driver_sql(
+                """SELECT id,owner FROM jobs WHERE kind='index' AND input_checksum=?
+                AND state IN ('pending','processing') ORDER BY created_at LIMIT 1""",
+                (checksum(j({"document_id": doc_id})),),
+            ).first()
+            if existing:
+                return {"id": existing[0] if existing[1] == actor.subject else None, "index_request": "queued"}
+            return {"id": self._enqueue(c, actor, "index", {"document_id": doc_id}, 1), "index_request": "queued"}
 
     def archive_document(self, doc_id: str, actor: Actor):
         with self.write() as c:
@@ -254,30 +286,60 @@ class Store:
     def active(self, role: str):
         return self.one("SELECT * FROM models WHERE role=? AND enabled=1 AND active=1", (role,))
 
+    def propose_template(self, actor: Actor, profile: str) -> str:
+        identifier = uuid4().hex
+        with self.write() as c:
+            c.exec_driver_sql(
+                "INSERT INTO template_versions (id,profile,proposed_by,updated_at) VALUES (?,?,?,?)",
+                (identifier, profile, actor.subject, utc()),
+            )
+            self.audit(c, actor.subject, "template_proposed", identifier)
+        return identifier
+
+    def approve_template(self, actor: Actor, identifier: str):
+        with self.write() as c:
+            proposed = c.exec_driver_sql(
+                "SELECT proposed_by,state FROM template_versions WHERE id=?", (identifier,)
+            ).first()
+            if proposed is None or proposed[0] == actor.subject or proposed[1] != "draft":
+                raise AccessError(409, "template_approval_invalid")
+            c.exec_driver_sql("UPDATE template_versions SET state='retired',updated_at=? WHERE state='active'", (utc(),))
+            c.exec_driver_sql(
+                "UPDATE template_versions SET state='active',approved_by=?,updated_at=? WHERE id=?",
+                (actor.subject, utc(), identifier),
+            )
+            self.audit(c, actor.subject, "template_approved", identifier)
+
+    def active_template(self):
+        return self.one("SELECT id,profile FROM template_versions WHERE state='active'")
+
     def queue(self, actor: Actor, kind: str, payload: dict, priority=0) -> str:
+        with self.write() as c:
+            return self._enqueue(c, actor, kind, payload, priority)
+
+    def _enqueue(self, c, actor: Actor, kind: str, payload: dict, priority: int) -> str:
         body = j(payload)
         hashed = checksum(body)
         job = uuid4().hex
-        with self.write() as c:
-            prior = c.exec_driver_sql(
-                """SELECT id FROM jobs WHERE owner=? AND kind=? AND input_checksum=? AND state IN ('pending','processing')""",
-                (actor.subject, kind, hashed),
-            ).scalar()
-            if prior:
-                return prior
-            capacity, owner_capacity = c.exec_driver_sql(
-                """SELECT COUNT(*), SUM(CASE WHEN owner=? THEN 1 ELSE 0 END)
-                FROM jobs WHERE state IN ('pending','processing')""",
-                (actor.subject,),
-            ).one()
-            if capacity >= 100 or (owner_capacity or 0) >= 12:
-                raise AccessError(429, "queue_full")
-            c.exec_driver_sql(
-                """INSERT INTO jobs(id,owner,kind,payload,input_checksum,state,created_at,updated_at,available_at,priority)
-                VALUES(?,?,?,?,?,'pending',?,?,?,?)""",
-                (job, actor.subject, kind, body, hashed, utc(), utc(), time.time(), priority),
-            )
-            self.audit(c, actor.subject, "job_enqueued", job)
+        prior = c.exec_driver_sql(
+            """SELECT id FROM jobs WHERE owner=? AND kind=? AND input_checksum=? AND state IN ('pending','processing')""",
+            (actor.subject, kind, hashed),
+        ).scalar()
+        if prior:
+            return prior
+        capacity, owner_capacity = c.exec_driver_sql(
+            """SELECT COUNT(*), SUM(CASE WHEN owner=? THEN 1 ELSE 0 END)
+            FROM jobs WHERE state IN ('pending','processing')""",
+            (actor.subject,),
+        ).one()
+        if capacity >= 100 or (owner_capacity or 0) >= 12:
+            raise AccessError(429, "queue_full")
+        c.exec_driver_sql(
+            """INSERT INTO jobs(id,owner,kind,payload,input_checksum,state,created_at,updated_at,available_at,priority)
+            VALUES(?,?,?,?,?,'pending',?,?,?,?)""",
+            (job, actor.subject, kind, body, hashed, utc(), utc(), time.time(), priority),
+        )
+        self.audit(c, actor.subject, "job_enqueued", job)
         return job
 
     def claim(self, timeout: int, concurrency: int):

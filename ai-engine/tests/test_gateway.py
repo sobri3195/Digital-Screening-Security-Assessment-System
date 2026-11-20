@@ -140,6 +140,31 @@ def test_evaluation_runs_retrieval_on_present_and_missing_cases(gateway):
     assert evaluated["result"]["passed"] == 2 and evaluated["result"]["total"] == 2
 
 
+def test_template_review_and_local_comparison(gateway):
+    import asyncio
+
+    from sentinel_ai.evaluation import Suite, compare
+
+    model_id = gateway.model()
+    document, _ = gateway.approve()
+    assert gateway.send("/templates", {"profile": "custom prompt"}).status_code == 422
+    proposal = gateway.send("/templates", {"profile": "evidence_first"}).json()["id"]
+    assert gateway.send(f"/templates/{proposal}/approve").status_code == 409
+    assert gateway.send(f"/templates/{proposal}/approve", subject=2).status_code == 200
+    request = {"kind":"vulnerability", "cve":"CVE-2021-44228"}
+    job = gateway.send("/analyze/vulnerability", request).json()["id"]
+    assert gateway.wait(job)["result"]["template_version"].endswith(proposal)
+    suite = Suite.model_validate({"cases":[{
+        "id":"indonesian_evidence", "request":request, "expected":"grounded",
+        "references":[document], "terms":["Referensi"],
+    }]})
+    app = gateway.app
+    measured = asyncio.run(compare(suite, [model_id], app.state.store, app.state.worker.runtime, gateway.settings))
+    row = measured["cases"][0]
+    assert row["keyword_baseline"]["expected_retrieved"] == 1
+    assert row["models"][0]["matches_expectation"] and row["models"][0]["terms_matched"] == 1
+
+
 def test_configuration_without_reference_preserves_typed_observations(gateway):
     job = gateway.send(
         "/analyze/configuration",

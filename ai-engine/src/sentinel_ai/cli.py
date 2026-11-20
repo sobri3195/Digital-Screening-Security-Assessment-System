@@ -1,4 +1,5 @@
 from argparse import ArgumentParser
+import asyncio
 from hashlib import sha256
 import json
 from pathlib import Path
@@ -21,6 +22,10 @@ def main(argv=None):
     token = commands.add_parser("workstation-token")
     token.add_argument("id")
     token.add_argument("scopes", nargs="+", choices=sorted(CORE_SCOPES))
+    evaluate = commands.add_parser("evaluate")
+    evaluate.add_argument("suite", type=Path)
+    evaluate.add_argument("--model", action="append", required=True)
+    evaluate.add_argument("--internal", action="store_true")
     args = parser.parse_args(argv)
     if args.command == "serve":
         uvicorn.run(
@@ -36,6 +41,14 @@ def main(argv=None):
         print(secrets.token_hex(32))
     elif args.command == "embedding-digest":
         print(directory_digest(args.path))
+    elif args.command == "evaluate":
+        from .evaluation import run
+
+        try:
+            result = asyncio.run(run(args.suite, args.model, args.internal))
+        except (OSError, ValueError):
+            parser.error("Suite, model yang disetujui, atau konfigurasi evaluasi tidak valid.")
+        print(json.dumps(result, ensure_ascii=False, indent=2))
     else:
         value = secrets.token_hex(32)
         print(

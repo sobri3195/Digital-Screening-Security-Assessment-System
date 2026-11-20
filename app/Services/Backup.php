@@ -85,10 +85,20 @@ final class Backup
             // Phase 1 backup files exclude intel data. Preserve their locally linked assets or fail atomically.
             $assetLinks = query('SELECT av.*, a.code AS current_code FROM ti_asset_vulnerabilities av
                 JOIN institutional_assets a ON a.id=av.asset_id FOR UPDATE')->fetchAll();
+            $desktopLinks = query('SELECT d.*, a.code AS current_code FROM ti_desktop_results d
+                JOIN institutional_assets a ON a.id=d.asset_id FOR UPDATE')->fetchAll();
+            $incidentLinks = query('SELECT l.incident_id,l.vulnerability_id,i.title AS current_title FROM ti_incident_links l
+                JOIN security_incidents i ON i.id=l.incident_id FOR UPDATE')->fetchAll();
             $restoredAssets = array_column($tables['institutional_assets'], 'code', 'id');
-            foreach ($assetLinks as $link) {
+            foreach ([...$assetLinks,...$desktopLinks] as $link) {
                 if (($restoredAssets[$link['asset_id']] ?? null) !== $link['current_code']) {
                     throw new Http(422, 'Cadangan tidak mempertahankan aset yang dirujuk temuan intelijen.');
+                }
+            }
+            $restoredIncidents = array_column($tables['security_incidents'], 'title', 'id');
+            foreach ($incidentLinks as $link) {
+                if (($restoredIncidents[$link['incident_id']] ?? null) !== $link['current_title']) {
+                    throw new Http(422, 'Cadangan tidak mempertahankan insiden yang ditautkan ke intelijen.');
                 }
             }
             foreach (array_reverse(self::TABLES) as $table) {
@@ -113,6 +123,14 @@ final class Backup
                 unset($link['current_code']);
                 query('INSERT INTO ti_asset_vulnerabilities (id,asset_id,vulnerability_id,state,basis,due_on,assignee_id,note,updated_at)
                     VALUES (?,?,?,?,?,?,?,?,?)', array_values($link));
+            }
+            foreach ($desktopLinks as $link) {
+                unset($link['current_code']);
+                query('INSERT INTO ti_desktop_results (id,asset_id,client_id,session_id,revision,report_sha256,payload_sha256,
+                    score,coverage,finding_count,tasks_total,tasks_completed,received_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)', array_values($link));
+            }
+            foreach ($incidentLinks as $link) {
+                query('INSERT INTO ti_incident_links VALUES (?,?)', [$link['incident_id'],$link['vulnerability_id']]);
             }
             Reports::backfillFinalDocuments();
             audit($user, 'restore', 'backup');

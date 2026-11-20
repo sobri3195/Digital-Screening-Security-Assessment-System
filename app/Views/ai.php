@@ -154,6 +154,15 @@ elseif ($section === 'task'):
                 <label>Dokumen JSON yang telah diperiksa untuk data sensitif<textarea class="form-control" name="document" rows="8" required></textarea></label>
                 <button class="btn btn-primary" name="action" value="submit">Simpan draf</button>
             </form></details>
+            <?php if (\Sentinel\Core\Auth::allows($user, 'threat.vulnerability.view')): ?>
+                <details class="panel spaced"><summary>Impor rujukan CVE dari katalog TI</summary>
+                    <form method="post" class="record-form">
+                        <input type="hidden" name="_csrf" value="<?= $csrf ?>">
+                        <?php $input('ID CVE','cve'); ?>
+                        <button class="btn btn-primary" name="action" value="import_cve">Simpan sebagai draf</button>
+                    </form>
+                </details>
+            <?php endif ?>
         <?php endif ?>
         <details class="panel spaced"><summary>Sumber pengetahuan</summary>
             <?php $list($data['sources'],['title'=>'Sumber','enabled'=>'Aktif (1/0)'],$can('knowledge.manage') ?
@@ -179,7 +188,7 @@ elseif ($section === 'task'):
             static function($row) use ($section,$post,$can): void { ?>
             <a href="/ai/knowledge?id=<?= escape($row['id']) ?>">Tinjau</a>
             <?php if ($can('knowledge.approve') && $row['state'] === 'approved'): ?>
-                <?php if ($section === 'rag' && $can('knowledge.manage')) $post('/ai/rag','index',['id'=>$row['id']],'Indeks ulang'); ?>
+                <?php $post('/ai/' . $section,'index',['id'=>$row['id']],'Indeks ulang'); ?>
                 <?php if ($section === 'knowledge') $post('/ai/knowledge','archive',['id'=>$row['id']],'Arsipkan'); ?>
             <?php endif ?>
         <?php }); ?>
@@ -223,5 +232,17 @@ elseif ($section === 'task'):
         <label class="choice"><input type="checkbox" name="confirm" value="1" required> Hapus riwayat lama sesuai kebijakan institusi.</label>
         <button class="btn btn-primary" name="action" value="retention">Terapkan retensi</button>
     </form></section>
-    <?php if ($data['template']): ?><section class="panel"><h2>Template yang berlaku</h2><pre class="ti-value"><?= escape(json_encode($data['template'], JSON_PRETTY_PRINT)) ?></pre></section><?php endif ?>
+    <?php if ($data['template']): ?><section class="panel"><h2>Versi template · <?= escape($data['template']['version']) ?></h2>
+        <form method="post" class="record-form">
+            <input type="hidden" name="_csrf" value="<?= $csrf ?>">
+            <?php $select('Profil keluaran','profile',['evidence_first'=>'Prioritas bukti','mitigation_first'=>'Prioritas mitigasi']); ?>
+            <button class="btn btn-primary" name="action" value="template_propose">Ajukan versi template</button>
+        </form>
+        <?php $list($data['template']['versions'],['profile'=>'Profil','id'=>'Versi','state'=>'Status','updated_at'=>'Diperbarui'],
+            static function ($row) use ($can,$post): void {
+                if ($can('template.approve') && $row['state'] === 'draft') {
+                    $post('/ai/settings','template_approve',['id'=>$row['id']],'Setujui dan aktifkan');
+                }
+            }); ?>
+    </section><?php endif ?>
 <?php endif ?>

@@ -20,6 +20,21 @@ if ($isIoc):
     <?php endforeach;
 elseif ($route === 'vulnerabilities'): ?>
     <p>Prioritas teknis <?= escape(Analysis::vulnerabilityPriority($detail)['score']) ?>/100. EPSS adalah estimasi kemungkinan eksploitasi CVE, bukan bukti kompromi aset.</p>
+    <?php if (\Sentinel\Core\Auth::allows($user, 'technical.read')): ?>
+        <details class="ti-evidence"><summary>Insiden terkait</summary>
+            <ul><?php foreach ($detail['incidents'] as $incident): ?>
+                <li><a href="/m/security_incidents?id=<?= escape($incident['id']) ?>"><?= escape($incident['title']) ?></a></li>
+            <?php endforeach ?></ul>
+            <?php if ($can('finding.verify') && \Sentinel\Core\Auth::allows($user, 'technical.write')): ?>
+                <form method="post" action="<?= escape($base) ?>" class="record-form">
+                    <input type="hidden" name="_csrf" value="<?= $csrf ?>"><input type="hidden" name="id" value="<?= escape($detail['id']) ?>">
+                    <?php $input('ID insiden','incident','number'); ?>
+                    <button class="btn btn-primary" name="action" value="link-incident">Tautkan</button>
+                    <button class="btn btn-outline-secondary" name="action" value="unlink-incident">Lepas tautan</button>
+                </form>
+            <?php endif ?>
+        </details>
+    <?php endif ?>
     <?php if ($detail['kev_history']): ?>
         <details class="ti-evidence"><summary>Riwayat keanggotaan CISA KEV</summary>
             <?php $listing($detail['kev_history'], ['status'=>'Perubahan','observed_at'=>'Waktu sinkronisasi','sync_job_id'=>'Job','evidence_sha256'=>'SHA-256 bukti']); ?>

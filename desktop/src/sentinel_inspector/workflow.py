@@ -29,6 +29,11 @@ def run(
     cancel: Event,
     progress: Callable[[str, int, int, str], None] = lambda *_: None,
 ):
+    with db.session_lock(session):
+        _run_locked(db, session, selection, cancel, progress)
+
+
+def _run_locked(db: Database, session: str, selection: Selection, cancel: Event, progress: Callable):
     if selection.files and not selection.modules & FILE_MODULES:
         raise InspectorError("File hanya dapat dipilih untuk modul yang diotorisasi.")
     if len(selection.files) > MAX_FILES or len(set(selection.files)) != len(selection.files):

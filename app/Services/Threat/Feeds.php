@@ -35,26 +35,7 @@ final class Feeds
                 $json = $fetch(self::CISA, [], null);
                 break;
             case 'nvd':
-                $windowEnd = $checkpoint['end'] ?? gmdate('Y-m-d\TH:i:s.000\Z');
-                $minimum = gmdate('Y-m-d\TH:i:s.000\Z', time() - 119 * 86400);
-                $windowStart = $checkpoint['start'] ?? max($minimum, $checkpoint['watermark'] ?? gmdate('Y-m-d\TH:i:s.000\Z', time() - 7 * 86400));
-                if ($windowStart > $windowEnd) {
-                    $windowStart = $windowEnd;
-                }
-                $offset = (int) ($checkpoint['offset'] ?? 0);
-                $parameters = ['lastModStartDate' => $windowStart, 'lastModEndDate' => $windowEnd, 'startIndex' => $offset, 'resultsPerPage' => $preview ? 5 : 100];
-                $key = self::key('TI_NVD_KEY');
-                $json = $fetch(self::NVD . '?' . http_build_query($parameters, '', '&', PHP_QUERY_RFC3986), $key ? ['apiKey: ' . $key] : [], null);
-                $pageCount = is_array($json['vulnerabilities'] ?? null) ? count($json['vulnerabilities']) : 0;
-                $total = filter_var($json['totalResults'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 0]]);
-                if ($total === false || (int) ($json['startIndex'] ?? -1) !== $offset || ($pageCount === 0 && $offset < $total)) {
-                    throw new FeedFailure('Paginasi NVD tidak valid.', true);
-                }
-                if ($offset + $pageCount < $total) {
-                    $next = ['start' => $windowStart, 'end' => $windowEnd, 'offset' => $offset + $pageCount];
-                } else {
-                    $watermark = ['watermark' => gmdate('Y-m-d\TH:i:s.000\Z', strtotime($windowEnd) - 60)];
-                }
+                [$json,$next,$watermark] = self::nvdPage($checkpoint, $preview, $fetch);
                 break;
             case 'epss':
                 $limit = $preview ? 5 : 75;
@@ -102,6 +83,45 @@ final class Feeds
             $next = null;
         }
         return ['rows' => $rows, 'rejected' => $rejected, 'next' => $next, 'watermark' => $watermark, 'message' => 'Respons feed tervalidasi.'];
+    }
+
+    private static function nvdPage(array $checkpoint, bool $preview, callable $fetch): array
+    {
+        $historical = isset($checkpoint['history_end']);
+        if ($historical) {
+            $start = $checkpoint['history_start'];
+            $end = min($start + 119 * 86400 - 1, $checkpoint['history_end']);
+            $parameters = ['pubStartDate'=>gmdate('Y-m-d\TH:i:s.000\Z',$start), 'pubEndDate'=>gmdate('Y-m-d\TH:i:s.999\Z',$end)];
+        } else {
+            $windowEnd = $checkpoint['end'] ?? gmdate('Y-m-d\TH:i:s.000\Z');
+            $minimum = gmdate('Y-m-d\TH:i:s.000\Z', time() - 119 * 86400);
+            $windowStart = min($windowEnd, $checkpoint['start'] ?? max($minimum,
+                $checkpoint['watermark'] ?? gmdate('Y-m-d\TH:i:s.000\Z', time() - 7 * 86400)));
+            $parameters = ['lastModStartDate'=>$windowStart, 'lastModEndDate'=>$windowEnd];
+        }
+        $offset = (int) ($checkpoint['offset'] ?? 0);
+        $parameters += ['startIndex'=>$offset, 'resultsPerPage'=>$preview ? 5 : 100];
+        $key = self::key('TI_NVD_KEY');
+        $json = $fetch(self::NVD . '?' . http_build_query($parameters, '', '&', PHP_QUERY_RFC3986), $key ? ['apiKey: ' . $key] : [], null);
+        $pageCount = is_array($json['vulnerabilities'] ?? null) ? count($json['vulnerabilities']) : 0;
+        $total = filter_var($json['totalResults'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 0]]);
+        if ($total === false || (int) ($json['startIndex'] ?? -1) !== $offset || ($pageCount === 0 && $offset < $total)) {
+            throw new FeedFailure('Paginasi NVD tidak valid.', true);
+        }
+        if ($offset + $pageCount < $total) {
+            $cursor = $historical ? $checkpoint : ['start'=>$windowStart,'end'=>$windowEnd];
+            $cursor['offset'] = $offset + $pageCount;
+            return [$json,$cursor,null];
+        }
+        if ($historical) {
+            if ($end >= $checkpoint['history_end']) {
+                return [$json,null,null];
+            }
+            unset($checkpoint['offset']);
+            $checkpoint['history_start'] = $end + 1;
+            return [$json,$checkpoint,null];
+        }
+        return [$json,null,['watermark'=>gmdate('Y-m-d\TH:i:s.000\Z', strtotime($windowEnd) - 60)]];
     }
 
     public static function parse(string $code, array $json): array

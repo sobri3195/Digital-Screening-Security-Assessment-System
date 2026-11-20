@@ -102,6 +102,36 @@ paths:
         '415': {description: Content-Type tidak valid}
         '422': {description: Provider nonaktif atau belum dikonfigurasi}
         '429': {description: Batas permintaan}
+  /desktop-results:
+    post:
+      summary: Terima ringkasan revisi final Device Inspector
+      description: Scope threat.desktop.upload. Gunakan klien dan kode aset unit tujuan.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [schema, asset_code, session_id, revision, report_sha256, score, coverage, finding_count, tasks_total, tasks_completed]
+              properties:
+                schema: {type: string, enum: [sentinel-inspection-v1]}
+                asset_code: {type: string, minLength: 2, maxLength: 80}
+                session_id: {type: string, pattern: '^[a-f0-9]{32}$'}
+                revision: {type: integer, minimum: 1, maximum: 1000000}
+                report_sha256: {type: string, pattern: '^[a-f0-9]{64}$'}
+                score: {type: integer, nullable: true, minimum: 0, maximum: 100}
+                coverage: {type: integer, minimum: 0, maximum: 100}
+                finding_count: {type: integer, minimum: 0, maximum: 100000}
+                tasks_total: {type: integer, minimum: 0, maximum: 32}
+                tasks_completed: {type: integer, minimum: 0, maximum: 32}
+      responses:
+        '201': {description: Ringkasan diterima}
+        '200': {description: Revisi identik sudah tersimpan}
+        '403': {description: Scope tidak tersedia}
+        '404': {description: Kode aset belum terdaftar}
+        '409': {description: Sesi atau revisi bentrok dengan hasil tersimpan}
+        '422': {description: Ringkasan tidak valid}
 components:
   securitySchemes:
     bearerAuth: {type: http, scheme: bearer}

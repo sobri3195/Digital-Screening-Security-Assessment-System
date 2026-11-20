@@ -159,6 +159,23 @@ final class Threat
                     [$state,Store::date($_POST['due'] ?? null),self::assignee(),Store::text($_POST['note'] ?? null,2000),$finding,$id]);
                 $return .= '?id=' . $id;
                 break;
+            case 'vulnerabilities:link-incident':
+            case 'vulnerabilities:unlink-incident':
+                Auth::require($user, 'threat.finding.verify');
+                Auth::require($user, 'technical.write');
+                $id = Catalog::id($_POST,'id');
+                $incident = Catalog::id($_POST,'incident');
+                if (!query('SELECT 1 FROM security_incidents WHERE id=?', [$incident])->fetchColumn()
+                    || !query('SELECT 1 FROM ti_vulnerabilities WHERE id=?', [$id])->fetchColumn()) {
+                    throw new Http(404, 'Insiden atau kerentanan tidak ditemukan.');
+                }
+                if ($action === 'link-incident') {
+                    query('INSERT IGNORE INTO ti_incident_links VALUES (?,?)', [$incident,$id]);
+                } else {
+                    query('DELETE FROM ti_incident_links WHERE incident_id=? AND vulnerability_id=?', [$incident,$id]);
+                }
+                $return .= '?id=' . $id;
+                break;
             case 'advisories:add':
                 Auth::require($user, 'threat.indicator.manage');
                 $code = text_input($_POST, 'provider');
@@ -179,29 +196,8 @@ final class Threat
             case 'advisories:import':
                 Auth::require($user, 'threat.indicator.manage');
                 $code = text_input($_POST, 'provider');
-                if (!in_array($code, ['bssn','kemkes'], true)) {
-                    throw new Http(422, 'Pilih publikasi resmi BSSN atau Kemenkes.');
-                }
-                $provider = Store::provider($code);
-                $publisher = $code === 'bssn' ? 'BSSN' : 'Kemenkes CSIRT';
                 $entries = AdvisoryImport::upload($_FILES['advisory'] ?? [], text_input($_POST,'format'));
-                Store::transaction(static function () use ($entries,$code,$provider,$publisher): void {
-                    foreach ($entries as $entry) {
-                        $entry['healthcare'] = $code === 'kemkes';
-                        if (($entry['reference'] ?? '') !== '') {
-                            $host = parse_url($entry['reference'], PHP_URL_HOST);
-                            $expected = $code === 'bssn' ? 'bssn.go.id' : 'kemkes.go.id';
-                            if (!is_string($host) || ($host !== $expected && !str_ends_with(strtolower($host), '.' . $expected))) {
-                                throw new Http(422, 'Rujukan advisori berada di luar organisasi penerbit.');
-                            }
-                        }
-                        $id = Store::advisory((int) $provider['id'], $publisher, $entry);
-                        if ($entry['healthcare']) {
-                            Store::alert('healthcare:' . $id,'advisori','Advisori kesehatan perlu ditinjau','medium','/threat/advisories?id=' . $id);
-                        }
-                    }
-                });
-                $notice = count($entries) . ' entri advisori diproses.';
+                $notice = AdvisoryImport::store($code, $entries) . ' entri advisori diproses.';
                 break;
             case 'advisories:read':
             case 'advisories:bookmark':
@@ -313,6 +309,8 @@ final class Threat
         }
         $row['kev_history'] = query('SELECT status,observed_at,sync_job_id,evidence_sha256 FROM ti_kev_history
             WHERE vulnerability_id=? ORDER BY id DESC LIMIT 25', [$id])->fetchAll();
+        $row['incidents'] = $assetAccess ? query('SELECT i.id,i.title FROM ti_incident_links l JOIN security_incidents i ON i.id=l.incident_id
+            WHERE vulnerability_id=? ORDER BY i.id DESC LIMIT 25', [$id])->fetchAll() : [];
         $row['assets'] = $assetAccess ? query('SELECT av.*,a.code,a.title FROM ti_asset_vulnerabilities av JOIN institutional_assets a ON a.id=av.asset_id
             WHERE av.vulnerability_id=? ORDER BY av.id DESC LIMIT 100', [$id])->fetchAll() : [];
         return $row;

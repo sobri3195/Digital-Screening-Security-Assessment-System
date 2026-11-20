@@ -336,7 +336,7 @@ def create_app(settings: Settings | None = None, runtime=None) -> FastAPI:
     @app.post(ROOT + "/knowledge/documents/{doc}/approve")
     def approve_document(doc: UUID, body: EmbeddingApproval, user: Actor = Auth):
         user.require("ai.knowledge.approve")
-        return {"state": "approved", "index_job": store.approve_document(doc.hex, user, body.embed)}
+        return store.approve_document(doc.hex, user, body.embed)
 
     @app.post(ROOT + "/knowledge/documents/{doc}/archive")
     def archive_document(doc: UUID, user: Actor = Auth):
@@ -346,8 +346,8 @@ def create_app(settings: Settings | None = None, runtime=None) -> FastAPI:
 
     @app.post(ROOT + "/knowledge/documents/{doc}/index", status_code=202)
     def index_document(doc: UUID, user: Actor = Auth):
-        user.require("ai.knowledge.manage", "ai.knowledge.approve")
-        return {"id": store.queue(user, "index", {"document_id": doc.hex})}
+        user.require("ai.knowledge.approve", "ai.knowledge.view")
+        return store.retry_index(doc.hex, user)
 
     @app.get(ROOT + "/knowledge/search")
     async def search(
@@ -375,6 +375,8 @@ def create_app(settings: Settings | None = None, runtime=None) -> FastAPI:
         if body.kind in ("report", "executive") and not user.subject.startswith("web:"):
             raise AccessError(403, "aggregates_require_web")
         data = body.model_dump(mode="json") | {"_allow_internal": "ai.knowledge.view" in user.scopes}
+        if template := store.active_template():
+            data["_template"] = template
         return {"id": store.queue(user, body.kind, data)}
 
     @app.post(ROOT + "/analyze/{kind}", status_code=202)
@@ -478,7 +480,22 @@ def create_app(settings: Settings | None = None, runtime=None) -> FastAPI:
             "analysis_types": list(SCOPE),
             "approval": "bundled_code_review",
             "plan_schema": analysis.Plan.model_json_schema(),
+            "profiles": list(analysis.TEMPLATE_PROFILES),
+            "versions": store.rows("SELECT id,profile,state,updated_at FROM template_versions ORDER BY updated_at DESC LIMIT 50"),
         }
+
+    @app.post(ROOT + "/templates", status_code=201)
+    def propose_template(body: dict[str, str], user: Actor = Auth):
+        user.require("ai.template.manage")
+        if set(body) != {"profile"} or body["profile"] not in analysis.TEMPLATE_PROFILES:
+            raise AccessError(422, "template_profile_invalid")
+        return {"id": store.propose_template(user, body["profile"]), "state": "draft"}
+
+    @app.post(ROOT + "/templates/{template}/approve")
+    def approve_template(template: UUID, user: Actor = Auth):
+        user.require("ai.template.approve")
+        store.approve_template(user, template.hex)
+        return {"state": "active"}
 
     @app.get(ROOT + "/audit")
     def audit(user: Actor = Auth):

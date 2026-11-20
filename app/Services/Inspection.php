@@ -84,10 +84,24 @@ final class Inspection
             chmod($target, 0600);
             query('INSERT INTO file_inspections (title,mime,extension,bytes,md5_hash,sha256,duplicate_of,mismatch,scan_status,storage_name,retained_until,user_id)
                 VALUES (?,?,?,?,?,?,?,?,?,?,NOW() + INTERVAL 30 DAY,?)',
-                [$name, $mime, $extension, $size, $md5, $sha, $duplicate ?: null, $mismatch, 'Belum diperiksa antivirus', $key, $userId]);
+                [$name, $mime, $extension, $size, $md5, $sha, $duplicate ?: null, $mismatch, ClamAv::scan($target), $key, $userId]);
         } catch (\Throwable $error) {
             unlink($target);
             throw $error;
         }
+    }
+    public static function scanStored(int $id): void
+    {
+        $record = query('SELECT storage_name,sha256 FROM file_inspections WHERE id=? AND retained_until>NOW()', [$id])->fetch();
+        if (!$record || !is_string($record['storage_name']) || !preg_match('/^[a-f0-9]{32}$/D', $record['storage_name'])) {
+            throw new Http(404, 'File privat tidak tersedia atau masa retensinya berakhir.');
+        }
+        $path = BASE . '/storage/uploads/' . $record['storage_name'];
+        if (is_link($path) || !is_file($path) || @hash_file('sha256', $path) !== $record['sha256']) {
+            throw new Http(422, 'File privat tidak lolos pemeriksaan integritas.');
+        }
+        $status = ClamAv::scan($path);
+        query('UPDATE file_inspections SET scan_status=? WHERE id=? AND storage_name=? AND retained_until>NOW()',
+            [$status, $id, $record['storage_name']]);
     }
 }

@@ -106,6 +106,25 @@ if (in_array('--integration', $argv, true)) {
     $staleId = Queue::enqueue('cisa','sync',null);
     Queue::work(1, static fn () => $fixture);
     verify(query('SELECT state FROM ti_sync_jobs WHERE id=?', [$staleId])->fetchColumn() === 'failed', 'Snapshot lama ditolak');
+    query("INSERT INTO institutional_assets (code,title,brand,model) VALUES ('TEST-AUTOMATCH','TEST automatic asset','TEST Vendor','TEST Product')");
+    verify(Analysis::matchAssetBatch(25) > 0 && Analysis::matchAssetBatch(25) === 0, 'Pencocokan aset otomatis bertahap dan idempoten');
+    query("UPDATE ti_providers SET enabled=1,checkpoint=? WHERE code='nvd'", ['{"watermark":"2026-01-01T00:00:00.000Z"}']);
+    $historyId = Queue::nvdBackfill('2000-01-01','2000-07-01');
+    $windows = [];
+    $fetch = static function (string $url) use (&$windows): array {
+        parse_str((string) parse_url($url, PHP_URL_QUERY), $parameters);
+        $windows[] = $parameters;
+        return ['startIndex'=>0,'totalResults'=>0,'vulnerabilities'=>[]];
+    };
+    Queue::work(1, $fetch);
+    query('UPDATE ti_sync_jobs SET next_attempt_at=NOW() WHERE id=?', [$historyId]);
+    Queue::work(1, $fetch);
+    verify(count($windows) === 2 && isset($windows[0]['pubStartDate'], $windows[1]['pubEndDate'])
+        && strtotime($windows[1]['pubStartDate']) === strtotime($windows[0]['pubEndDate']) + 1
+        && query('SELECT state FROM ti_sync_jobs WHERE id=?', [$historyId])->fetchColumn() === 'succeeded'
+        && json_decode(Store::provider('nvd')['checkpoint'], true)['watermark'] === '2026-01-01T00:00:00.000Z',
+        'Backfill NVD melanjutkan rentang berurutan tanpa menggeser watermark sinkronisasi');
+    query("UPDATE ti_providers SET enabled=0 WHERE code='nvd'");
     $provider = (int) Store::provider('manual')['id'];
     $ioc = ['value'=>'test-indicator.example.test','severity'=>'critical','confidence'=>90,'category'=>'phishing','first_seen'=>gmdate('Y-m-d\TH:i:s\Z')];
     Store::transaction(static fn () => Store::indicator($provider, $ioc));

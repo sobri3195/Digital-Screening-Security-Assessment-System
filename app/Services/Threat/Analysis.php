@@ -163,6 +163,23 @@ final class Analysis
         return $count;
     }
 
+    public static function matchAssetBatch(int $limit): int
+    {
+        $limit = max(1, min(250, $limit));
+        return Store::transaction(static function () use ($limit): int {
+            query("INSERT IGNORE INTO ti_settings VALUES ('asset_match_cursor','0')");
+            $after = (int) query("SELECT value FROM ti_settings WHERE name='asset_match_cursor' FOR UPDATE")->fetchColumn();
+            $ids = query("SELECT id FROM ti_vulnerabilities WHERE id>? AND (nvd_evidence IS NOT NULL OR kev_added_on IS NOT NULL)
+                ORDER BY id LIMIT $limit", [$after])->fetchAll(\PDO::FETCH_COLUMN);
+            $added = 0;
+            foreach ($ids as $id) {
+                $added += self::assetCandidates((int) $id);
+            }
+            query("UPDATE ti_settings SET value=? WHERE name='asset_match_cursor'", [count($ids) < $limit ? 0 : end($ids)]);
+            return $added;
+        });
+    }
+
     public static function versions(?string $version, array $product): bool
     {
         $expected = $product['version'] ?? '*';

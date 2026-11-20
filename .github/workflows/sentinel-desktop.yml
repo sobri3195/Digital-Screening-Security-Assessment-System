@@ -2,14 +2,8 @@ name: Device Inspector Windows
 
 on:
   push:
-    branches: ["codex/sentinel-phase-4"]
-    paths:
-      - "desktop/**"
-      - ".github/workflows/sentinel-desktop.yml"
+    branches: [main]
   pull_request:
-    paths:
-      - "desktop/**"
-      - ".github/workflows/sentinel-desktop.yml"
   workflow_dispatch:
 
 permissions:

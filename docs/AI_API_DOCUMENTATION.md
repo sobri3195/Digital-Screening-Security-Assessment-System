@@ -21,3 +21,7 @@ Gunakan prefix `/api/v1/ai`. Semua endpoint memerlukan Bearer. Kredensial web me
 | POST settings/retention | ai.settings.manage |
 
 Contoh analisis memakai `{"kind":"vulnerability","cve":"CVE-2021-44228"}`. Respons 202 berisi `id` antrean. Pantau status dan tampilkan hasil yang telah lulus validasi. API PHP untuk bearer Fase 1 hanya meneruskan subset baca dan analisis. API Gateway merupakan rujukan scope penuh. Untuk mengekspor skema lokal, jalankan `python -c "import json; from sentinel_ai.gateway import create_app; print(json.dumps(create_app().openapi()))"` dari environment terkonfigurasi.
+
+Persetujuan dokumen mengembalikan `index_request` dengan nilai `queued`, `deferred`, atau `not_requested`. Saat antrean penuh, `state=approved` dan `index_status=keyword` memberi tahu operator bahwa dokumen sudah bisa dicari. Peninjau dapat mengirim ulang `POST /knowledge/documents/{id}/index` memakai `ai.knowledge.view` dan `ai.knowledge.approve`.
+
+Gunakan `POST /templates` dengan scope kelola untuk mengajukan salah satu profil bawaan. Peninjau berbeda memakai `POST /templates/{id}/approve` dengan scope persetujuan. Tugas baru menyimpan ID versi template saat diajukan. Halaman Knowledge Base dapat membuat draf dari katalog TI untuk CVE yang dipilih. Review sumber, privasi, dan fakta tetap menggunakan alur persetujuan dokumen.

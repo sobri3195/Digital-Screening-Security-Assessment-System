@@ -3,7 +3,7 @@ declare(strict_types=1);
 namespace Sentinel\Controllers;
 
 use Sentinel\Core\Http;
-use Sentinel\Services\Threat\{Analysis, Catalog, Feeds, Queue};
+use Sentinel\Services\Threat\{Analysis, Catalog, DesktopResults, Feeds, Queue};
 
 final class ThreatApi
 {
@@ -18,6 +18,7 @@ final class ThreatApi
         'reports' => ['GET','threat.report.generate'],
         'providers' => ['GET','threat.provider.manage'],
         'sync' => ['POST','threat.sync.execute'],
+        'desktop-results' => ['POST','threat.desktop.upload'],
     ];
 
     public static function handle(string $route, string $method, array $client): never
@@ -41,6 +42,8 @@ final class ThreatApi
             $data = Analysis::scan(text_input($input,'indicator'), null, $clientId);
         } elseif ($route === 'sync') {
             $data = ['job_id' => Queue::enqueue(text_input($input,'provider'),'sync',null),'state'=>'accepted'];
+        } elseif ($route === 'desktop-results') {
+            $data = DesktopResults::receive($input, $clientId);
         } elseif ($route === 'health') {
             $data = ['status'=>'ok','latest_success_at'=>query('SELECT MAX(last_success_at) FROM ti_providers')->fetchColumn() ?: null];
         } elseif ($route === 'summary') {
@@ -50,7 +53,7 @@ final class ThreatApi
             $data = ['items' => array_slice($rows,0,100), 'next_after' => count($rows) > 100 ? (int) $rows[99]['id'] : null];
         }
         audit(null, 'api-' . $route, 'threat');
-        Http::json(['data' => $data], $route === 'sync' ? 202 : ($route === 'scan' ? 201 : 200));
+        Http::json(['data' => $data], $route === 'sync' ? 202 : (($route === 'scan' || ($data['state'] ?? '') === 'received') ? 201 : 200));
     }
 
     private static function list(string $route, array $input): array

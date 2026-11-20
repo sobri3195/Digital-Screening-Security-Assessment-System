@@ -131,7 +131,15 @@ request(admin, "/m/file_inspections", 303, body=payload, headers=metadata)
 request(admin, "/m/file_inspections", 303, body=payload, headers=metadata)
 file_id = record_id(admin, "file_inspections", "sentinel-smoke.txt")
 file_page, _ = request(admin, f"/m/file_inspections?id={file_id}")
-assert b"Belum diperiksa antivirus" in file_page and b"SHA-256" in file_page
+scan_status = os.getenv("SENTINEL_TEST_FILE_SCAN_STATUS", "Belum diperiksa antivirus").encode()
+assert scan_status in file_page and b"SHA-256" in file_page
+if fixture := os.getenv("SENTINEL_TEST_CLAMAV_FIXTURE"):
+    payload, metadata = form_data(token, "", "file", "SMOKE-clamd-match.txt", Path(fixture).read_bytes(), "text/plain")
+    request(admin, "/m/file_inspections", 303, body=payload, headers=metadata)
+    detected = record_id(admin, "file_inspections", "SMOKE-clamd-match.txt")
+    assert b"ClamAV: terdeteksi" in request(admin, f"/m/file_inspections?id={detected}")[0]
+    save("file_inspections", action="scan_again", id=detected)
+    assert b"ClamAV: terdeteksi" in request(admin, f"/m/file_inspections?id={detected}")[0]
 request(admin, "/storage/uploads/example", 404)
 
 save("security_findings", title="SMOKE Finding", asset_id=asset, category="configuration", severity="rendah", state="draf")
@@ -228,16 +236,13 @@ profile = request(auditor, "/profile")[0]
 request(auditor, "/profile", 303, fields={"_csrf": csrf(profile), "current": PASSWORD, "action": "totp-start"})
 profile = request(auditor, "/profile")[0]
 secret = re.search(rb'<code>([A-Z2-7]{32})</code>', profile)[1].decode()
-near_expiry = time.time() % 30
-if near_expiry > 27:
-    time.sleep(30 - near_expiry + .1)
 step = int(time.time()) // 30
 request(auditor, "/profile", 303, fields={"_csrf": csrf(profile), "current": PASSWORD,
-        "action": "totp-confirm", "totp": totp(secret, step - 1)})
+        "action": "totp-confirm", "totp": totp(secret, step)})
 request(auditor, "/m/audit_logs", 303)
 login = request(auditor, "/login")[0]
-factor = totp(secret, step)
 request(auditor, "/login", 401, fields={"_csrf": csrf(login), "username": "smoke-auditor", "password": PASSWORD})
+factor = totp(secret, max(step + 1, int(time.time()) // 30))
 request(auditor, "/login", 303, fields={"_csrf": csrf(login), "username": "smoke-auditor", "password": PASSWORD, "totp": factor})
 auditor_page = request(auditor, "/m/audit_logs")[0]
 request(auditor, "/logout", 303, fields={"_csrf": csrf(auditor_page)})

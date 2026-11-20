@@ -1,0 +1,114 @@
+name: SENTINEL Integration
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: "17 */6 * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  regression:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    services:
+      mariadb:
+        image: mariadb:11.8
+        env:
+          MARIADB_ROOT_PASSWORD: sentinel-ci-root
+        ports:
+          - 3307:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s --health-timeout=5s --health-retries=15
+    env:
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3307
+      DB_NAME: sentinel_phase_ci
+      DB_USER: sentinel_ci
+      DB_PASSWORD: sentinel-ci-database
+      APP_SECURE_COOKIE: "0"
+      SENTINEL_TEST_USER: sentinel-ci
+      SENTINEL_TEST_URL: http://127.0.0.1:8080
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: curl, dom, gd, intl, mbstring, pdo_mysql, sodium
+          tools: composer:v2
+          coverage: none
+      - name: Install application dependencies
+        run: |
+          set -euo pipefail
+          composer install --no-interaction --prefer-dist
+          npm ci
+          npm run assets
+          python -m pip install ./ai-engine
+      - name: Run intranet and gateway smoke checks
+        env:
+          CI_DATABASE_CONTAINER: ${{ job.services.mariadb.id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          docker exec -i "$CI_DATABASE_CONTAINER" mariadb -uroot -psentinel-ci-root <<'SQL'
+          CREATE DATABASE sentinel_phase_ci CHARACTER SET utf8mb4;
+          CREATE DATABASE sentinel_phase_ci_migration CHARACTER SET utf8mb4;
+          CREATE USER 'sentinel_ci'@'%' IDENTIFIED BY 'sentinel-ci-database';
+          GRANT ALL ON sentinel_phase_ci.* TO 'sentinel_ci'@'%';
+          GRANT ALL ON sentinel_phase_ci_migration.* TO 'sentinel_ci'@'%';
+          SQL
+          export APP_KEY="$(php bin/setup.php key)"
+          export AI_WEB_KEY="$(php bin/setup.php key)"
+          export AI_DATABASE="$RUNNER_TEMP/ci-ai.sqlite3" AI_GATEWAY_URL=http://127.0.0.1:8766
+          export AI_OLLAMA_ORIGIN=http://127.0.0.1:11437
+          export SENTINEL_TEST_PASSWORD_FILE="$RUNNER_TEMP/sentinel-password"
+          php bin/setup.php key > "$SENTINEL_TEST_PASSWORD_FILE"
+          php bin/setup.php migrate
+          php bin/setup.php admin "$SENTINEL_TEST_USER" < "$SENTINEL_TEST_PASSWORD_FILE"
+          php tests/run.php
+          DB_NAME=sentinel_phase_ci_migration php tests/migration_resume.php
+          python tests/clamav_smoke.py
+
+          sentinel-ai serve > "$RUNNER_TEMP/sentinel-ai.log" 2>&1 &
+          gateway=$!
+          php -d upload_max_filesize=12M -d post_max_size=15M -S 127.0.0.1:8080 -t public bin/router.php > "$RUNNER_TEMP/sentinel-web.log" 2>&1 &
+          web=$!
+          trap 'kill "$gateway" "$web" 2>/dev/null || true' EXIT
+          curl --retry 15 --retry-connrefused --retry-delay 1 -fsS "$SENTINEL_TEST_URL/api/v1/health" > /dev/null
+          curl --retry 15 --retry-connrefused --retry-delay 1 -sS "$AI_GATEWAY_URL/" -o /dev/null
+          python tests/smoke.py
+          php tests/threat.php --integration
+          python tests/threat_smoke.py
+          python tests/smoke_ai_web.py
+      - name: Review dependency advisories
+        run: |
+          composer audit --locked --no-interaction
+          npm audit
+
+  public-preview:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 4
+    steps:
+      - name: Verify production homepage and stylesheet
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=https://margono-wine.vercel.app
+          curl --fail --silent --show-error --max-time 20 --retry 2 "$base/" -o "$RUNNER_TEMP/homepage.html"
+          grep -q '<title>PUSKESAU SENTINEL' "$RUNNER_TEMP/homepage.html"
+          curl --fail --silent --show-error --max-time 20 --retry 2 "$base/assets/preview.css" -o "$RUNNER_TEMP/preview.css"
+          test -s "$RUNNER_TEMP/preview.css"

@@ -10,6 +10,18 @@ use Sentinel\Services\Reports;
 final class Records
 {
     public const CHECK_STATES = ['memenuhi', 'tidak_memenuhi', 'belum_diperiksa', 'tidak_berlaku'];
+    public const CHECK_RECOMMENDATIONS = [
+        'Pembaruan sistem operasi' => 'Jadwalkan pembaruan keamanan dari kanal resmi dan verifikasi versinya.',
+        'Pembaruan antivirus' => 'Perbarui engine dan signature yang disetujui lalu periksa tanggal pembaruan.',
+        'Enkripsi penyimpanan' => 'Aktifkan enkripsi yang disetujui dan konfirmasikan pemulihan kunci.',
+        'Screen lock' => 'Aktifkan kunci layar otomatis sesuai batas waktu kebijakan unit.',
+        'Firewall' => 'Aktifkan profil firewall yang diwajibkan dan tinjau aturan yang tidak diperlukan.',
+        'Autentikasi dua faktor' => 'Aktifkan autentikasi dua faktor untuk akun yang mendukungnya.',
+        'Backup data' => 'Jadwalkan cadangan dan verifikasi dengan uji pemulihan.',
+        'Pengaturan keamanan jaringan' => 'Tinjau konfigurasi jaringan terhadap baseline unit.',
+        'Software sah' => 'Verifikasi sumber dan lisensi perangkat lunak sebelum digunakan.',
+        'Perlindungan phishing' => 'Tinjau penyaringan pesan dan pelaporan phishing yang disetujui.',
+    ];
 
     public static function view(string $table, array $module, array $user, bool $archive = false): array
     {
@@ -92,6 +104,14 @@ final class Records
                 default => [],
             },
         };
+        if ($id && $special === 'incident' && Auth::allows($user, 'threat.vulnerability.view')) {
+            $extras['vulnerabilities'] = query('SELECT v.id,v.cve FROM ti_incident_links l JOIN ti_vulnerabilities v ON v.id=l.vulnerability_id
+                WHERE incident_id=? ORDER BY v.id DESC LIMIT 25', [$id])->fetchAll();
+        }
+        if ($id && $table === 'institutional_assets') {
+            $extras['desktop'] = query('SELECT revision,report_sha256,score,coverage,finding_count,tasks_total,tasks_completed,received_at
+                FROM ti_desktop_results WHERE asset_id=? ORDER BY id DESC LIMIT 15', [$id])->fetchAll();
+        }
         return compact('title', 'module', 'table', 'fields', 'write', 'rows', 'record', 'special', 'page', 'total', 'search', 'state', 'references', 'extras', 'archive');
     }
 
@@ -154,6 +174,15 @@ final class Records
             return;
         }
         if ($special === 'file') {
+            if (text_input($_POST, 'action') === 'scan_again') {
+                Http::limit('file-rescan:' . $userId, 12);
+                Inspection::scanStored((int) text_input($_POST, 'id'));
+                audit($userId, 'scan-ulang', $table);
+                return;
+            }
+            if (config('CLAMD_SOCKET') !== '') {
+                Http::limit('file-upload:' . $userId, 12);
+            }
             Inspection::upload($_FILES['file'] ?? [], $userId);
             audit($userId, 'upload', $table);
             return;

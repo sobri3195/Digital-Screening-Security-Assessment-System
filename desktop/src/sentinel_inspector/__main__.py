@@ -35,6 +35,7 @@ def main(argv=None):
     for action in ("asset-add", "inspect", "intel-import"):
         sub.add_parser(action).add_argument("file", type=Path)
     sub.add_parser("show").add_argument("session")
+    sub.add_parser("recover").add_argument("session")
     sub.add_parser("lookup").add_argument("indicator")
     sub.add_parser("summary")
     sub.add_parser("verify-audit")
@@ -47,6 +48,12 @@ def main(argv=None):
     close = sub.add_parser("close")
     close.add_argument("session")
     close.add_argument("reviewer")
+    sync = sub.add_parser("sync")
+    sync.add_argument("session")
+    sync.add_argument("--revision", type=int)
+    sync.add_argument("--url", required=True)
+    sync.add_argument("--client-id", type=int, required=True)
+    sync.add_argument("--ca", type=Path)
     sub.add_parser("backup").add_argument("output", type=Path)
     restore = sub.add_parser("restore")
     restore.add_argument("input", type=Path)
@@ -101,6 +108,13 @@ def _dispatch(db: Database, args):
         return {"session_id": session, "state": db.session(session)["status"]}
     if args.action == "show":
         return db.session(args.session)
+    if args.action == "recover":
+        db.recover_interrupted(args.session)
+        return {"status": "review"}
+    if args.action == "sync":
+        from .sync import send, summary
+
+        return send(summary(db, args.session, args.revision), args.url, args.client_id, args.ca)
     if args.action == "lookup":
         return intelligence.lookup(db, args.indicator).payload
     if args.action == "intel-import":

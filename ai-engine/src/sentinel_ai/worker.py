@@ -60,8 +60,9 @@ class Worker:
                 "completed",
             )
         internal = bool(data.pop("_allow_internal", False))
+        template = data.pop("_template", None)
         result, metrics, model = await analysis.analyze(
-            job["id"], data, internal, self.retrieval, self.runtime, self.settings
+            job["id"], data, internal, self.retrieval, self.runtime, self.settings, template=template,
         )
         return result, metrics, model, "requires_review"
 

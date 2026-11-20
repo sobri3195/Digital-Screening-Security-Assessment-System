@@ -3,7 +3,9 @@ from datetime import UTC, datetime, timedelta
 from hashlib import sha256
 from importlib.resources import files
 import json
+import os
 from pathlib import Path
+import re
 import sqlite3
 from uuid import uuid4
 
@@ -188,6 +190,45 @@ class Database:
             if result.rowcount != 1:
                 raise InspectorError("Sesi sudah dimulai atau tidak dapat dijalankan.")
             self.audit(c, session, "inspection_started", {"modules": sorted(expected)})
+
+    @contextmanager
+    def session_lock(self, session: str):
+        if not re.fullmatch(r"[a-f0-9]{32}", session):
+            raise InspectorError("ID sesi tidak valid.")
+        directory = self.path.with_name(self.path.name + ".locks")
+        directory.mkdir(mode=0o700, exist_ok=True)
+        lockfile = directory / session
+        with os.fdopen(os.open(lockfile, os.O_RDWR | os.O_CREAT | getattr(os, "O_BINARY", 0), 0o600), "r+b") as lock:
+            try:
+                if os.name == "nt":
+                    import msvcrt
+
+                    msvcrt.locking(lock.fileno(), msvcrt.LK_NBLCK, 1)
+                else:
+                    import fcntl
+
+                    fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except OSError as error:
+                raise InspectorError("Sesi sedang digunakan oleh proses lain.") from error
+            yield
+
+    def recover_interrupted(self, session: str):
+        with self.session_lock(session), self.write() as c:
+            timestamp = now()
+            result = c.exec_driver_sql(
+                """UPDATE inspections SET status='review',ended_at=COALESCE(
+                (SELECT MAX(updated_at) FROM inspection_tasks WHERE inspection_id=? AND status<>'pending'),started_at)
+                WHERE id=? AND status='running'""",
+                (session, session),
+            )
+            if result.rowcount != 1:
+                raise InspectorError("Pilih sesi terputus dengan status berjalan.")
+            interrupted = c.exec_driver_sql(
+                """UPDATE inspection_tasks SET status='failed',notice=?,updated_at=?
+                WHERE inspection_id=? AND status IN ('pending','running')""",
+                ("Proses pemeriksaan terputus. Bukti modul yang selesai dipertahankan.", timestamp, session),
+            ).rowcount
+            self.audit(c, session, "inspection_recovered", {"interrupted_tasks": interrupted}, timestamp)
 
     def running(self, session: str, module: Module):
         with self.write() as c:

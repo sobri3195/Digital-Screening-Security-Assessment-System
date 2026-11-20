@@ -2,10 +2,8 @@ name: Local AI Gateway
 
 on:
   push:
-    branches: ["codex/sentinel-phase-6"]
-    paths: ["ai-engine/**", ".github/workflows/sentinel-ai.yml"]
+    branches: [main]
   pull_request:
-    paths: ["ai-engine/**", ".github/workflows/sentinel-ai.yml"]
   workflow_dispatch:
 
 permissions:
@@ -25,7 +23,7 @@ jobs:
           python -m pip install "./ai-engine[test]"
           python -m pytest -q ai-engine/tests
       - name: Verify and run local Ollama with explicitly approved QA models
-        if: github.event_name != 'pull_request'
+        if: github.event_name == 'workflow_dispatch'
         shell: bash
         run: |
           set -euo pipefail
@@ -52,7 +50,7 @@ jobs:
             AI_LIVE_INFERENCE_MODEL=qwen2.5:0.5b AI_LIVE_EMBEDDING_MODEL=nomic-embed-text:latest \
             AI_LIVE_METRICS="$RUNNER_TEMP/ollama-metrics.json" python -m pytest -q -s ai-engine/tests/test_live.py
       - name: Upload measured model metrics
-        if: github.event_name != 'pull_request'
+        if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
           name: local-ollama-metrics

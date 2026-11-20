@@ -16,7 +16,7 @@ Dari root checkout, instal `python -m pip install -e "./desktop[gui,yara,test]"`
 
 ## Batasan dan Fase 5
 
-Validasi Windows 10/11, hot-plug USB fisik, Defender dan ClamAV dengan signature aktif, APK yang ditandatangani dalam skema v2/v3, dan penerimaan installer masih diperlukan. Password policy, Windows auditing, status patch compliance, dan dukungan produk memerlukan sumber kebijakan yang belum terhubung. Integrasi Fase 3, SSO/RBAC lintas perangkat, sinkronisasi hasil pemeriksaan, dan verifikasi integritas terpusat adalah pekerjaan berikutnya. Gunakan data sintetis dan aset lab untuk penerimaan sebelum deployment.
+Validasi Windows 10/11, hot-plug USB fisik, Defender dan ClamAV pada workstation target, APK yang ditandatangani dalam skema v2/v3, dan penerimaan installer masih diperlukan. Password policy, Windows auditing, status patch compliance, dan dukungan produk memerlukan sumber kebijakan yang belum terhubung. Ringkasan revisi final dapat dikirim lewat HTTPS ke API unit. Integrasi Fase 3, SSO/RBAC lintas perangkat, dan verifikasi integritas terpusat merupakan pekerjaan berikutnya. [Pemulihan dan sinkronisasi Desktop](ADVANCED_DEVICE_INSPECTOR.md#pemulihan-dan-sinkronisasi)
 
 - [Panduan penggunaan](ADVANCED_DEVICE_INSPECTOR.md), [database](DATABASE_MIGRATION.md), dan [build Windows](BUILD_EXE_GUIDE.md).
 - [USB](USB_DEVICE_MONITOR_GUIDE.md), [Windows](WINDOWS_SECURITY_INSPECTOR.md), [Android](ANDROID_SECURITY_CHECKLIST.md), dan [iOS](IOS_SECURITY_CHECKLIST.md).
