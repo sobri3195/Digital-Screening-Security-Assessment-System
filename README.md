@@ -14,7 +14,7 @@ Pemeriksaan URL menggunakan heuristik statis. File pemeriksaan disimpan di luar 
 
 ## Pratinjau publik di Vercel
 
-Gunakan root repository sebagai **Root Directory** di pengaturan proyek Vercel. Deploy commit yang memuat `vercel.json`. Konfigurasi ini menonaktifkan framework preset dan memublikasikan direktori `vercel-preview/` sebagai situs statis tanpa langkah instalasi atau build.
+Gunakan root repository atau `public` sebagai **Root Directory** di proyek Vercel. Keduanya memublikasikan halaman dan aset dari `public/.vercel-preview/` sebagai situs statis. Untuk domain produksi, gunakan deployment **Production** dari branch `main` yang memuat konfigurasi tersebut.
 
 Pratinjau memuat ringkasan produk dan modul. Untuk menjalankan pemeriksaan, pengelolaan akun, dan pelaporan, ikuti [panduan instalasi intranet](docs/INSTALLATION.md).
 
