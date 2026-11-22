@@ -84,7 +84,13 @@ assert "<title>Dashboard · MARGONO</title>".encode() in dashboard
 token = csrf(dashboard)
 for route in ["notifications", "activity_periods", "activities", "inspection_schedules", "education", "url_inspections", "file_inspections", "institutional_assets", "security_checklists", "security_findings", "security_incidents", "reports", "users", "roles", "audit_logs", "api_clients", "backup_history", "system_settings"]:
     request(admin, "/m/" + route)
-for route in ["/system", "/statistics", "/analysis", "/archive", "/profile", "/assets/vendor/bootstrap.min.css", "/assets/vendor/chart.js"]:
+stylesheet = re.search(rb'href="(/assets/build/[^"]+\.css)"', login)
+module = re.search(rb'type="module" src="(/assets/build/[^"]+\.js)"', login)
+assert stylesheet and module, "Vite styles and script must be present on the login page"
+for asset, mime in ((stylesheet, "text/css"), (module, "javascript")):
+    contents, asset_headers = request(admin, asset[1].decode())
+    assert contents and mime in asset_headers["Content-Type"]
+for route in ["/system", "/statistics", "/analysis", "/archive", "/profile"]:
     request(admin, route)
 
 

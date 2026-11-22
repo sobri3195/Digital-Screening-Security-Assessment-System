@@ -54,7 +54,7 @@ jobs:
           set -euo pipefail
           composer install --no-interaction --prefer-dist
           npm ci
-          npm run assets
+          npm run build
           python -m pip install ./ai-engine
       - name: Run intranet and gateway smoke checks
         env:
@@ -110,5 +110,8 @@ jobs:
           base=https://margono-wine.vercel.app
           curl --fail --silent --show-error --max-time 20 --retry 2 "$base/" -o "$RUNNER_TEMP/homepage.html"
           grep -q '<title>MARGONO' "$RUNNER_TEMP/homepage.html"
-          curl --fail --silent --show-error --max-time 20 --retry 2 "$base/assets/preview.css" -o "$RUNNER_TEMP/preview.css"
+          stylesheet=$(sed -nE 's/.*href="(\.?\/assets\/[A-Za-z0-9._-]+\.css)".*/\1/p' "$RUNNER_TEMP/homepage.html")
+          test -n "$stylesheet"
+          stylesheet=${stylesheet#/}
+          curl --fail --silent --show-error --max-time 20 --retry 2 "$base/${stylesheet#./}" -o "$RUNNER_TEMP/preview.css"
           test -s "$RUNNER_TEMP/preview.css"
