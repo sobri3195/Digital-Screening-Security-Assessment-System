@@ -2,6 +2,9 @@
 /vendor/
 /node_modules/
 /public/assets/vendor/*
+/public/assets/build/
+/public/.vercel-preview/dist/
+/public/.vercel-preview/node_modules/
 /storage/*
 !/storage/.gitkeep
 

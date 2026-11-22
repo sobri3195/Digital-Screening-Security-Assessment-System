@@ -2,7 +2,13 @@
     "name": "puskesau-sentinel-assets",
     "version": "1.0.0",
     "private": true,
-    "scripts": {"assets": "node bin/assets.cjs"},
+    "scripts": {
+        "dev": "vite --config public/.vercel-preview/vite.config.mjs",
+        "build": "npm run build:intranet && npm run build:preview",
+        "build:intranet": "vite build",
+        "build:preview": "vite build --config public/.vercel-preview/vite.config.mjs",
+        "assets": "npm run build:intranet"
+    },
     "dependencies": {
         "bootstrap": "5.3.8",
         "bootstrap-icons": "1.13.1",
@@ -10,5 +16,8 @@
         "datatables.net": "2.3.5",
         "jquery": "3.7.1",
         "sweetalert2": "11.26.17"
+    },
+    "devDependencies": {
+        "vite": "8.3.8"
     }
 }

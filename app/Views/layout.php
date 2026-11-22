@@ -3,6 +3,12 @@ use Sentinel\Core\Auth;
 use Sentinel\Services\Branding;
 
 $title = $data['title'];
+$manifestPath = BASE . '/public/assets/build/.vite/manifest.json';
+$manifest = is_file($manifestPath) ? json_decode(file_get_contents($manifestPath), true) : [];
+$entries = ['frontend/intranet.js'];
+if ($template === 'ai') {
+    $entries[] = 'frontend/ai.js';
+}
 $logo = $user && $template !== 'error' ? Branding::dataUri() : '';
 $notice = $_SESSION['notice'] ?? null;
 unset($_SESSION['notice']);
@@ -34,19 +40,14 @@ foreach (Sentinel\Controllers\Ai::PAGES as $route => [$label,$permission]) {
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <link rel="icon" href="data:,">
     <title><?= escape($title) ?> · <?= escape(Branding::NAME) ?></title>
-    <link rel="stylesheet" href="/assets/vendor/bootstrap.min.css">
-    <link rel="stylesheet" href="/assets/vendor/bootstrap-icons.css">
-    <link rel="stylesheet" href="/assets/css/sentinel.css">
-    <script defer src="/assets/vendor/bootstrap.bundle.min.js"></script>
-    <?php if ($template === 'records'): ?>
-    <link rel="stylesheet" href="/assets/vendor/sweetalert2.css">
-    <script defer src="/assets/vendor/jquery.js"></script>
-    <script defer src="/assets/vendor/datatables.js"></script>
-    <script defer src="/assets/vendor/sweetalert2.js"></script>
-    <?php endif ?>
-    <script defer src="/assets/js/sentinel.js"></script>
-    <?php if ($template === 'ai'): ?><script defer src="/assets/js/ai.js"></script><?php endif ?>
-    <?php if (in_array($template, ['dashboard','threat/dashboard'], true) || ($template === 'ai' && $data['section'] === 'dashboard')): ?><script defer src="/assets/vendor/chart.js"></script><?php endif ?>
+    <?php foreach ($entries as $name):
+        $entry = $manifest[$name] ?? null;
+        if (!$entry) { continue; } ?>
+        <?php foreach ($entry['css'] ?? [] as $stylesheet): ?>
+            <link rel="stylesheet" href="/assets/build/<?= escape($stylesheet) ?>">
+        <?php endforeach ?>
+        <script type="module" src="/assets/build/<?= escape($entry['file']) ?>"></script>
+    <?php endforeach ?>
 </head>
 <body class="<?= $user ? 'application' : 'guest' ?>">
 <?php if ($user): ?>

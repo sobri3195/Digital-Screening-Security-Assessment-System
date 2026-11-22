@@ -1,9 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
-  "installCommand": "",
-  "buildCommand": "",
-  "outputDirectory": ".vercel-preview",
+  "installCommand": "npm --prefix .vercel-preview ci --include=dev",
+  "buildCommand": "npm --prefix .vercel-preview run build",
+  "outputDirectory": ".vercel-preview/dist",
   "rewrites": [
     {
       "source": "/",

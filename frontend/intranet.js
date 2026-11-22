@@ -1,4 +1,7 @@
-'use strict';
+import 'bootstrap/dist/css/bootstrap.min.css';
+import 'bootstrap-icons/font/bootstrap-icons.css';
+import './intranet.css';
+import 'bootstrap/dist/js/bootstrap.bundle.min.js';
 
 const root = document.documentElement;
 const themeKey = 'sentinel-theme';
@@ -7,10 +10,12 @@ try {
 } catch {
     // Theme switching still works when persistent storage is unavailable.
 }
-function renderCharts() {
-    if (typeof Chart === 'undefined') return;
+const chartCanvases = document.querySelectorAll('canvas[data-chart]');
+async function renderCharts() {
+    if (!chartCanvases.length) return;
+    const { default: Chart } = await import('chart.js/auto');
     const color = getComputedStyle(root).getPropertyValue('--muted').trim();
-    for (const canvas of document.querySelectorAll('canvas[data-chart]')) {
+    for (const canvas of chartCanvases) {
         const rows = JSON.parse(canvas.dataset.chart);
         Chart.getChart(canvas)?.destroy();
         new Chart(canvas, {
@@ -71,25 +76,29 @@ fullscreen?.addEventListener('click', async () => {
 });
 document.querySelector('#print')?.addEventListener('click', () => window.print());
 const table = document.querySelector('table[data-sort-page]');
-if (table && typeof DataTable !== 'undefined') {
-    new DataTable(table, {
-        order: [],
-        paging: false,
-        searching: false,
-        info: false,
-        autoWidth: false,
-        columnDefs: [{ targets: -1, orderable: false }],
-        language: { aria: { orderable: ': Urutkan halaman ini', orderableReverse: ': Balikkan urutan halaman ini' } }
+if (table) {
+    import('datatables.net').then(({ default: DataTable }) => {
+        new DataTable(table, {
+            order: [],
+            paging: false,
+            searching: false,
+            info: false,
+            autoWidth: false,
+            columnDefs: [{ targets: -1, orderable: false }],
+            language: { aria: { orderable: ': Urutkan halaman ini', orderableReverse: ': Balikkan urutan halaman ini' } }
+        });
     });
 }
 document.addEventListener('click', async event => {
     const button = event.target.closest('button[data-confirm]');
     if (!button) return;
     event.preventDefault();
-    if (typeof Swal === 'undefined') {
+    const dialog = await import('./confirmation.js').catch(() => null);
+    if (!dialog) {
         if (window.confirm(button.dataset.confirm)) button.form.requestSubmit(button);
         return;
     }
+    const { default: Swal } = dialog;
     const decision = await Swal.fire({
         title: button.dataset.confirm,
         icon: 'warning',

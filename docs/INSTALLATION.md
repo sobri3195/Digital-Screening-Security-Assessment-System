@@ -2,7 +2,7 @@
 
 ## Prasyarat
 
-PHP 8.3+ dengan PDO MySQL, fileinfo, GD, sodium, mbstring, DOM, dan ekstensi yang diminta Composer. Siapkan MariaDB atau MySQL, Composer 2, Node.js dan npm. Gunakan `npm ci` dan `composer install` di mesin yang mempunyai akses ke registry sebelum membawa checkout beserta `vendor/` dan `public/assets/vendor/` ke intranet.
+PHP 8.3+ dengan PDO MySQL, fileinfo, GD, sodium, mbstring, DOM, dan ekstensi yang diminta Composer. Siapkan MariaDB atau MySQL, Composer 2, Node.js 20.19+ pada seri 20 atau Node.js 22.12+, dan npm. Jalankan `npm ci`, `npm run build:intranet`, dan `composer install` di mesin yang mempunyai akses ke registry sebelum membawa checkout beserta `vendor/` dan `public/assets/build/` ke intranet.
 
 ## Konfigurasi
 
@@ -11,7 +11,7 @@ Buat database `puskesau_sentinel` dengan `utf8mb4`. Buat kredensial khusus untuk
 ```bash
 composer install --no-interaction
 npm ci
-npm run assets
+npm run build:intranet
 php bin/setup.php key
 php bin/setup.php migrate
 ```
