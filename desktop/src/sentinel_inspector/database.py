@@ -12,6 +12,7 @@ from uuid import uuid4
 from sqlalchemy import URL, create_engine, event
 from sqlalchemy.exc import OperationalError
 
+from . import PRODUCT_NAME
 from .models import Asset, Authorization, COMMON_MODULES, Module, Observation, PLATFORM_MODULES, Platform
 from .posture import evaluate
 
@@ -355,6 +356,8 @@ class Database:
             "revision": revision, "generated_at": now(), "legacy": legacy, "record": record,
             "posture": evaluate(record, rule), "usb": self._report_usb(c, record),
         }
+        if not legacy:
+            snapshot["product_name"] = PRODUCT_NAME
         c.exec_driver_sql(
             "INSERT INTO inspection_report_revisions VALUES (?,?,?)", (session, revision, json_text(snapshot))
         )

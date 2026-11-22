@@ -4,10 +4,10 @@ VSVersionInfo(
   kids=[
     StringFileInfo([StringTable('040904b0', [
       StringStruct('CompanyName', 'Puskesau'),
-      StringStruct('FileDescription', 'PUSKESAU SENTINEL Advanced Device Inspector'),
+      StringStruct('FileDescription', 'MARGONO Advanced Device Inspector'),
       StringStruct('FileVersion', '1.1.0'),
       StringStruct('InternalName', 'PUSKESAU_SENTINEL_Advanced_Portable'),
-      StringStruct('ProductName', 'PUSKESAU SENTINEL Device Inspector'),
+      StringStruct('ProductName', 'MARGONO Device Inspector'),
       StringStruct('ProductVersion', '1.1.0')
     ])]),
     VarFileInfo([VarStruct('Translation', [1033, 1200])])

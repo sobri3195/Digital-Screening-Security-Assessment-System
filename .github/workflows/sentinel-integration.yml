@@ -109,6 +109,6 @@ jobs:
           set -euo pipefail
           base=https://margono-wine.vercel.app
           curl --fail --silent --show-error --max-time 20 --retry 2 "$base/" -o "$RUNNER_TEMP/homepage.html"
-          grep -q '<title>PUSKESAU SENTINEL' "$RUNNER_TEMP/homepage.html"
+          grep -q '<title>MARGONO' "$RUNNER_TEMP/homepage.html"
           curl --fail --silent --show-error --max-time 20 --retry 2 "$base/assets/preview.css" -o "$RUNNER_TEMP/preview.css"
           test -s "$RUNNER_TEMP/preview.css"

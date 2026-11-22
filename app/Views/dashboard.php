@@ -1,5 +1,5 @@
 <div class="page-heading">
-    <div><p class="eyebrow">PUSKESAU SENTINEL</p><h1><?= escape($data['title']) ?></h1></div>
+    <div><p class="eyebrow"><?= escape(\Sentinel\Services\Branding::NAME) ?></p><h1><?= escape($data['title']) ?></h1></div>
     <span class="status"><span class="indicator"></span> Basis data tersambung</span>
 </div>
 <form class="panel filter-grid" method="get">

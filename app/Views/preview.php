@@ -11,4 +11,5 @@ $signatures = $data['signatures'];
 $logo = $data['logo'];
 $results = $data['results'];
 $institution = $data['institution'];
+$documentTitle = $data['documentTitle'] ?? null;
 require BASE . '/app/Views/document.php';

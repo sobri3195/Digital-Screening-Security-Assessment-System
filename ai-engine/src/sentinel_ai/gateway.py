@@ -149,7 +149,7 @@ def create_app(settings: Settings | None = None, runtime=None) -> FastAPI:
             store.engine.dispose()
 
     app = FastAPI(
-        title="SENTINEL AI Engine",
+        title="MARGONO AI Engine",
         version="3.0.0",
         lifespan=life,
         docs_url=None,

@@ -141,6 +141,9 @@ final class IntelligenceReports
     {
         $document = self::liveDocument(self::record($id, $user, true));
         $document['report']['legacy_snapshot'] = $legacy;
+        if ($legacy) {
+            unset($document['documentTitle']);
+        }
         query('UPDATE ti_reports SET final_document=? WHERE id=? AND final_document IS NULL', [Store::json($document), $id]);
     }
 
@@ -154,6 +157,7 @@ final class IntelligenceReports
         $logo = Branding::dataUri();
         $signatures = $record['approved_at'] ? [['title' => $record['approver'], 'created_at' => $record['approved_at']]] : [];
         $results = $snapshot['results'];
-        return compact('report', 'institution', 'logo', 'signatures', 'results');
+        $documentTitle = Branding::DOCUMENT_TITLE;
+        return compact('report', 'institution', 'logo', 'signatures', 'results', 'documentTitle');
     }
 }

@@ -68,7 +68,16 @@ def test_closed_report_preserves_preceding_revision(db, tmp_path):
     checks = (MobileCheck(control="screen_lock", state="fail"),)
     run(db, session, Selection({Module.ANDROID}, mobile_checks=checks), Event())
     db.close(session, "TEST.REV")
+    snapshot = db.report_revision(session, 1)
+    assert snapshot.pop("product_name") == "MARGONO"
+    with db.write() as c:
+        c.exec_driver_sql(
+            "UPDATE inspection_report_revisions SET snapshot=? WHERE inspection_id=? AND revision=1",
+            (json.dumps(snapshot), session),
+        )
+
     previous = reporting.document(db, session, "complete")
+    assert "product_name" not in previous
     first = reporting.export(db, session, "complete", tmp_path / "first.pdf")
     finding = previous["findings"][0]["id"]
     with pytest.raises(InspectorError, match="alasan"):
@@ -76,6 +85,7 @@ def test_closed_report_preserves_preceding_revision(db, tmp_path):
     db.review_finding(finding, "resolved", "TEST.REV", "TEST resolved after close")
     latest = reporting.document(db, session, "complete")
     assert latest["document"].endswith("-R2")
+    assert latest["product_name"] == "MARGONO"
     assert latest["findings"][0]["status"] == "resolved"
     assert reporting.document(db, session, "complete", 1) == previous
     assert reporting.export(db, session, "complete", tmp_path / "again.pdf", 1) == first

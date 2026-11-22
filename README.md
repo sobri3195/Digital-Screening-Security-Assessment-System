@@ -1,6 +1,6 @@
-# PUSKESAU SENTINEL
+# MARGONO
 
-Digital Security Assessment System untuk administrasi pemeriksaan teknis aset institusi, edukasi, dokumentasi insiden, dan pelaporan internal. Aplikasi menggunakan PHP Native 8.3+, MariaDB atau MySQL, dan aset frontend lokal. Zona waktu aplikasi adalah Asia/Jakarta.
+**Manajemen Aset, Risiko, Gawai, Observasi, dan Notifikasi Operasional** adalah sistem penilaian keamanan digital untuk administrasi pemeriksaan teknis aset institusi, edukasi, dokumentasi insiden, dan pelaporan internal. Aplikasi menggunakan PHP Native 8.3+, MariaDB atau MySQL, dan aset frontend lokal. Zona waktu aplikasi adalah Asia/Jakarta.
 
 ## Mulai
 
@@ -43,6 +43,6 @@ Jalankan migrasi setelah memperbarui checkout. Menu Threat Intelligence menyedia
 
 Modul desktop Fase 4 tersedia di `desktop/`. Lihat [implementasi dan instalasi Device Inspector](docs/PHASE_4_IMPLEMENTATION.md) untuk pemeriksaan lokal, katalog offline, cakupan Windows, dan langkah membangun paket x64.
 
-## SENTINEL AI Engine
+## MARGONO AI Engine
 
 Gateway FastAPI Fase 6 menyediakan analisis teknis lokal, pencarian berbasis bukti, serta tinjauan manusia untuk web dan Device Inspector. Integrasi bersifat opsional. [Panduan implementasi Fase 6](docs/PHASE_6_IMPLEMENTATION.md)

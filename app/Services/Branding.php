@@ -6,6 +6,10 @@ use Sentinel\Core\Http;
 
 final class Branding
 {
+    public const NAME = 'MARGONO';
+    public const EXPANSION = 'Manajemen Aset, Risiko, Gawai, Observasi, dan Notifikasi Operasional';
+    public const DOCUMENT_TITLE = self::NAME . ' · Sistem Penilaian Keamanan Digital';
+
     public static function upload(array $file): void
     {
         if (($file['error'] ?? null) !== UPLOAD_ERR_OK || !is_uploaded_file($file['tmp_name']) || $file['size'] > 200000) {

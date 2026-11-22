@@ -6,7 +6,7 @@ $scan = $data['scan'];
 ?>
 <section class="panel spaced">
     <h2>Pemeriksaan lokal</h2>
-    <p>Pencocokan memakai data yang tersimpan pada Sentinel. Hasil dapat dipengaruhi cakupan dan kesegaran sumber.</p>
+    <p>Pencocokan memakai data yang tersimpan di <?= escape(\Sentinel\Services\Branding::NAME) ?>. Hasil dapat dipengaruhi cakupan dan kesegaran sumber.</p>
     <form method="post" class="record-form" action="<?= escape($base) ?>">
         <input type="hidden" name="_csrf" value="<?= $csrf ?>">
         <label><?= escape(['url'=>'URL HTTP/HTTPS','domain'=>'Domain','ip'=>'Alamat IPv4 atau IPv6','hash'=>'Hash MD5, SHA-1, atau SHA-256'][$data['expected']] ?? 'URL, domain, alamat IP, hash, atau CVE') ?>

@@ -275,7 +275,7 @@ final class Ai
             throw new Http(409, 'Laporan PDF memerlukan verifikasi petugas.');
         }
         $report = ['id'=>$task['id'],'title'=>'Laporan Tinjauan AI','code'=>'AI-' . substr($task['id'],0,12),
-            'source'=>$task['kind'],'inspected_on'=>$task['updated_at'],'officer'=>'Petugas SENTINEL','state'=>'disetujui',
+            'source'=>$task['kind'],'inspected_on'=>$task['updated_at'],'officer'=>'Petugas ' . Branding::NAME,'state'=>'disetujui',
             'notes'=>$result['summary'],'evidence'=>implode(PHP_EOL, array_column($result['source_references'],'reference')),
             'mitigation'=>implode(PHP_EOL,array_column($result['recommendations'],'text'))];
         $results = array_map(static fn(array $row): array => ['title'=>$row['text'],'reference'=>implode(', ',$row['references']),
@@ -283,6 +283,7 @@ final class Ai
         $institution = query("SELECT value FROM system_settings WHERE title='institution_name'")->fetchColumn() ?: 'Pusat Kesehatan TNI Angkatan Udara';
         $logo = Branding::dataUri();
         $signatures = [['title'=>'Terverifikasi pada AI Gateway','created_at'=>$task['updated_at']]];
-        Reports::download(compact('report','institution','logo','signatures','results'),$user,'ai');
+        $documentTitle = Branding::DOCUMENT_TITLE;
+        Reports::download(compact('report','institution','logo','signatures','results','documentTitle'),$user,'ai');
     }
 }

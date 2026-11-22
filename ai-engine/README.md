@@ -1,4 +1,4 @@
-# SENTINEL AI Engine
+# MARGONO AI Engine
 
 Gateway FastAPI 3.0.0 untuk analisis teknis lokal. Gunakan Python 3.12 dan jalankan dari root repository.
 
