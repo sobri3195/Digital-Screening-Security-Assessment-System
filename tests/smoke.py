@@ -73,7 +73,8 @@ admin = browser()
 _, redirect_headers = request(admin, "/", 303)
 login, headers = request(admin, "/login")
 assert "Content-Security-Policy" in headers and "HttpOnly" in redirect_headers["Set-Cookie"]
-assert b"Masuk ke MARGONO" in login and b"Notifikasi Operasional" in login
+assert b"Masuk ke MARGONO" in login
+assert b"Monitoring, Asset Risk, Governance, Observation, Notifications, and Operations<br>LGBT Analysis" in login
 request(admin, "/login", 403, fields={"username": USERNAME, "password": PASSWORD})
 request(admin, "/login", 401, fields={"_csrf": csrf(login), "username": USERNAME, "password": "invalid"})
 request(admin, "/login", 303, fields={"_csrf": csrf(login), "username": USERNAME, "password": PASSWORD})

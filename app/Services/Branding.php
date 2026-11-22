@@ -7,7 +7,8 @@ use Sentinel\Core\Http;
 final class Branding
 {
     public const NAME = 'MARGONO';
-    public const EXPANSION = 'Manajemen Aset, Risiko, Gawai, Observasi, dan Notifikasi Operasional';
+    public const EXPANSION = 'Monitoring, Asset Risk, Governance, Observation, Notifications, and Operations';
+    public const TAGLINE = 'LGBT Analysis';
     public const DOCUMENT_TITLE = self::NAME . ' · Sistem Penilaian Keamanan Digital';
 
     public static function upload(array $file): void
