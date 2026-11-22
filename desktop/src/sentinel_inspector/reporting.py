@@ -11,6 +11,7 @@ from reportlab.lib.colors import HexColor
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 
+from . import PRODUCT_NAME
 from .backup import exclusive
 from .database import Database, InspectorError, now
 from .posture import evaluate
@@ -52,7 +53,7 @@ def document(db: Database, session: str, kind: str, revision: int | None = None)
         ]
     evidence_ids = {row.get("id") for row in evidence}
     finds = [row for row in record["findings"] if row["evidence_id"] in evidence_ids]
-    return {
+    data = {
         "document": "PSI-" + session[:10].upper() + "-" + kind.upper() + (f"-R{revision}" if snapshot else "-DRAF"),
         "title": title,
         "institution": "Pusat Kesehatan TNI Angkatan Udara",
@@ -73,6 +74,11 @@ def document(db: Database, session: str, kind: str, revision: int | None = None)
         "timeline": record["timeline"],
         "limitations": "Status tidak tersedia, cakupan parsial, dan katalog yang tidak lengkap menuntut verifikasi tambahan. Laporan ini bersifat internal.",
     }
+
+    product_name = snapshot.get("product_name") if snapshot else PRODUCT_NAME
+    if product_name:
+        data["product_name"] = product_name
+    return data
 
 
 def preview(data: dict) -> str:
@@ -121,6 +127,7 @@ def _pdf(data: dict) -> bytes:
     pdf = canvas.Canvas(memory, pagesize=A4, pageCompression=1, invariant=1)
     pdf.setTitle(data["title"])
     pdf.setAuthor(data["institution"])
+    product_name = data.get("product_name", "PUSKESAU SENTINEL")
     width, height = A4
     page = 0
     y = 0
@@ -132,7 +139,7 @@ def _pdf(data: dict) -> bytes:
         pdf.rect(0, height - 58, width, 58, fill=True, stroke=False)
         pdf.setFillColor(HexColor("#F8FAFC"))
         pdf.setFont("Helvetica-Bold", 12)
-        pdf.drawString(36, height - 35, "PUSKESAU SENTINEL  /  DOKUMEN INTERNAL")
+        pdf.drawString(36, height - 35, f"{product_name}  /  DOKUMEN INTERNAL")
         pdf.setFillColor(HexColor("#33435E"))
         pdf.setFont("Helvetica", 9)
         pdf.drawString(36, 25, data["document"])

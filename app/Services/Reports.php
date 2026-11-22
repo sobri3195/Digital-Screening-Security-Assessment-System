@@ -74,6 +74,9 @@ final class Reports
         $report = self::record($id);
         $document = self::liveDocument($report);
         $document['report']['legacy_snapshot'] = $legacy;
+        if ($legacy) {
+            unset($document['documentTitle']);
+        }
         query('UPDATE reports SET final_document=? WHERE id=? AND final_document IS NULL',
             [json_encode($document, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE), $id]);
     }
@@ -100,12 +103,14 @@ final class Reports
         $results = isset($report['result_snapshot']) ? json_decode($report['result_snapshot'], true, 512, JSON_THROW_ON_ERROR)
             : (in_array($report['state'], ['disetujui', 'arsip'], true) ? [] : self::results($report));
         unset($report['final_document'], $report['result_snapshot']);
-        return compact('report', 'institution', 'signatures', 'logo', 'results');
+        $documentTitle = Branding::DOCUMENT_TITLE;
+        return compact('report', 'institution', 'signatures', 'logo', 'results', 'documentTitle');
     }
 
     public static function download(array $document, int $userId, string $module = 'reports'): never
     {
         ['report' => $report, 'institution' => $institution, 'signatures' => $signatures, 'logo' => $logo, 'results' => $results] = $document;
+        $documentTitle = $document['documentTitle'] ?? null;
         $download = true;
         if (!class_exists(Dompdf::class)) {
             throw new Http(503, 'Generator PDF belum terpasang. Jalankan Composer sesuai petunjuk instalasi.');

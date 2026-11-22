@@ -1,8 +1,9 @@
 <?php
 use Sentinel\Core\Auth;
+use Sentinel\Services\Branding;
 
 $title = $data['title'];
-$logo = $user && $template !== 'error' ? Sentinel\Services\Branding::dataUri() : '';
+$logo = $user && $template !== 'error' ? Branding::dataUri() : '';
 $notice = $_SESSION['notice'] ?? null;
 unset($_SESSION['notice']);
 $labels = ['Utama', 'Administrasi', 'Keamanan Digital', 'Threat Intelligence', 'Artificial Intelligence', 'Pelaporan', 'Sistem'];
@@ -32,7 +33,7 @@ foreach (Sentinel\Controllers\Ai::PAGES as $route => [$label,$permission]) {
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <link rel="icon" href="data:,">
-    <title><?= escape($title) ?> · PUSKESAU SENTINEL</title>
+    <title><?= escape($title) ?> · <?= escape(Branding::NAME) ?></title>
     <link rel="stylesheet" href="/assets/vendor/bootstrap.min.css">
     <link rel="stylesheet" href="/assets/vendor/bootstrap-icons.css">
     <link rel="stylesheet" href="/assets/css/sentinel.css">
@@ -50,7 +51,7 @@ foreach (Sentinel\Controllers\Ai::PAGES as $route => [$label,$permission]) {
 <body class="<?= $user ? 'application' : 'guest' ?>">
 <?php if ($user): ?>
     <aside id="sidebar" class="sidebar" aria-label="Navigasi utama">
-        <a class="brand" href="/"><span class="insignia"><?php if ($logo): ?><img class="brand-logo" src="/institution-logo" alt=""><?php else: ?><i class="bi bi-shield-lock" aria-hidden="true"></i><?php endif ?></span><span>PUSKESAU<small>SENTINEL</small></span></a>
+        <a class="brand" href="/"><span class="insignia"><?php if ($logo): ?><img class="brand-logo" src="/institution-logo" alt=""><?php else: ?><i class="bi bi-shield-lock" aria-hidden="true"></i><?php endif ?></span><span><?= escape(Branding::NAME) ?><small>PUSKESAU</small></span></a>
         <nav>
             <?php foreach ($labels as $i => $group):
                 $visible = array_filter($links[$group] ?? [], static fn ($link) => Auth::allows($user, $link[2])
@@ -69,7 +70,7 @@ foreach (Sentinel\Controllers\Ai::PAGES as $route => [$label,$permission]) {
         <header class="topbar">
             <div class="top-tools">
                 <button type="button" id="nav-toggle" class="icon-button" title="Menu" aria-label="Menu" aria-controls="sidebar" aria-expanded="true"><i class="bi bi-list"></i></button>
-                <span class="breadcrumb-text">Sentinel <i class="bi bi-chevron-right"></i> <?= escape($title) ?></span>
+                <span class="breadcrumb-text"><?= escape(Branding::NAME) ?> <i class="bi bi-chevron-right"></i> <?= escape($title) ?></span>
             </div>
             <div class="top-tools">
                 <button type="button" id="fullscreen" class="icon-button" title="Layar penuh" aria-label="Layar penuh"><i class="bi bi-arrows-fullscreen"></i></button>

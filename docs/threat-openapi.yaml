@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  title: Sentinel Threat Intelligence
+  title: MARGONO Threat Intelligence
   version: 2.0.0
 servers:
   - url: /api/v1/threat-intelligence

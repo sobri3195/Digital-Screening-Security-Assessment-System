@@ -6,7 +6,7 @@ p { white-space: pre-wrap; overflow-wrap: break-word; }
 </style><body><?php endif ?>
 <article class="document">
     <p class="watermark">DOKUMEN INTERNAL</p>
-    <header><?php if ($logo): ?><img src="<?= escape($logo) ?>" alt="Logo institusi" width="64"><?php endif ?><strong><?= escape($institution) ?></strong><p>Sistem Penilaian Keamanan Digital</p></header>
+    <header><?php if ($logo): ?><img src="<?= escape($logo) ?>" alt="Logo institusi" width="64"><?php endif ?><strong><?= escape($institution) ?></strong><p><?= escape($documentTitle ?? 'Sistem Penilaian Keamanan Digital') ?></p></header>
     <h2><?= escape($report['title']) ?></h2>
     <table>
         <tr><th scope="row">Nomor laporan</th><td><?= escape($report['code']) ?></td></tr>

@@ -41,7 +41,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from . import __version__, backup, engines, intelligence, platforms, reporting
+from . import PRODUCT_NAME, __version__, backup, engines, intelligence, platforms, reporting
 from .ai_panel import AiPanel
 from .database import Database, InspectorError, json_text
 from .models import (
@@ -203,7 +203,7 @@ class InspectorWindow(QMainWindow):
     def __init__(self, db: Database):
         super().__init__()
         self.db = db
-        self.setWindowTitle("PUSKESAU SENTINEL · Device Inspector")
+        self.setWindowTitle(f"{PRODUCT_NAME} · Device Inspector")
         icon = files("sentinel_inspector").joinpath("sentinel.ico")
         if icon.is_file():
             self.setWindowIcon(QIcon(str(icon)))
@@ -230,7 +230,7 @@ class InspectorWindow(QMainWindow):
         rail = QWidget(objectName="Rail")
         rail.setFixedWidth(198)
         sidebar = QVBoxLayout(rail)
-        ident = QLabel("PUSKESAU\nSENTINEL", objectName="Brand")
+        ident = QLabel(PRODUCT_NAME, objectName="Brand")
         sidebar.addWidget(ident)
         sidebar.addWidget(QLabel("DEVICE INSPECTOR", objectName="Division"))
         menu = QListWidget()
@@ -294,7 +294,7 @@ class InspectorWindow(QMainWindow):
 
     def failure(self, message):
         self.statusBar().showMessage(message, 10000)
-        QMessageBox.warning(self, "Pemeriksaan Sentinel", message)
+        QMessageBox.warning(self, f"Pemeriksaan {PRODUCT_NAME}", message)
 
     def background(self, action, success=lambda _result: None, end=lambda: None, failed=None, progress=None):
         worker = Worker(action)
@@ -1021,7 +1021,7 @@ class InspectorWindow(QMainWindow):
         layout.addLayout(toolbar)
         row = QHBoxLayout()
         self.api_url = QLineEdit()
-        self.api_url.setPlaceholderText("Origin HTTPS resmi Sentinel institusi")
+        self.api_url.setPlaceholderText(f"Origin HTTPS resmi {PRODUCT_NAME} institusi")
         row.addWidget(self.api_url, 1)
         row.addWidget(self.button("Uji status API", self.health_check))
         layout.addLayout(row)
@@ -1040,7 +1040,7 @@ class InspectorWindow(QMainWindow):
 
     def backup(self):
         path, _ = QFileDialog.getSaveFileName(
-            self, "Buat cadangan", "sentinel-backup.psi", "Sentinel (*.psi)"
+            self, "Buat cadangan", "sentinel-backup.psi", f"{PRODUCT_NAME} (*.psi)"
         )
         if not path:
             return
@@ -1054,7 +1054,7 @@ class InspectorWindow(QMainWindow):
             )
 
     def restore(self):
-        source, _ = QFileDialog.getOpenFileName(self, "Pilih cadangan", "", "Sentinel (*.psi)")
+        source, _ = QFileDialog.getOpenFileName(self, "Pilih cadangan", "", f"{PRODUCT_NAME} (*.psi)")
         if not source:
             return
         path, _ = QFileDialog.getSaveFileName(
@@ -1167,7 +1167,7 @@ class InspectorWindow(QMainWindow):
 
 def launch(path: Path):
     app = QApplication.instance() or QApplication([])
-    app.setApplicationName("PUSKESAU SENTINEL")
+    app.setApplicationName(PRODUCT_NAME)
     db = Database(path)
     lock = QLockFile(str(db.path) + ".ui.lock")
     lock.setStaleLockTime(0)

@@ -73,11 +73,13 @@ admin = browser()
 _, redirect_headers = request(admin, "/", 303)
 login, headers = request(admin, "/login")
 assert "Content-Security-Policy" in headers and "HttpOnly" in redirect_headers["Set-Cookie"]
+assert b"Masuk ke MARGONO" in login and b"Notifikasi Operasional" in login
 request(admin, "/login", 403, fields={"username": USERNAME, "password": PASSWORD})
 request(admin, "/login", 401, fields={"_csrf": csrf(login), "username": USERNAME, "password": "invalid"})
 request(admin, "/login", 303, fields={"_csrf": csrf(login), "username": USERNAME, "password": PASSWORD})
 dashboard, _ = request(admin, "/")
 assert b"Basis data tersambung" in dashboard
+assert "<title>Dashboard · MARGONO</title>".encode() in dashboard
 token = csrf(dashboard)
 for route in ["notifications", "activity_periods", "activities", "inspection_schedules", "education", "url_inspections", "file_inspections", "institutional_assets", "security_checklists", "security_findings", "security_incidents", "reports", "users", "roles", "audit_logs", "api_clients", "backup_history", "system_settings"]:
     request(admin, "/m/" + route)
@@ -178,6 +180,7 @@ reviewer_home, _ = request(reviewer, "/")
 request(reviewer, "/m/reports", 303, fields={"_csrf": csrf(reviewer_home), "id": report, "action": "setujui"})
 preview, _ = request(admin, f"/reports/{report}")
 assert b"Report smoke" in preview and b"SMOKE-K" in preview and b"data:image/png;base64," in preview
+assert "MARGONO · Sistem Penilaian Keamanan Digital".encode() in preview
 pdf, headers = request(admin, f"/reports/{report}/pdf")
 assert pdf.startswith(b"%PDF-") and len(pdf) > 1000 and headers["Content-Type"].startswith("application/pdf")
 reviewer_profile, _ = request(reviewer, "/profile")
