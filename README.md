@@ -24,7 +24,7 @@ Aset intranet dihasilkan di `public/assets/build/` dan dimuat oleh template PHP.
 
 Gunakan root repository atau `public` sebagai **Root Directory** di proyek Vercel. Kedua konfigurasi menjalankan build Vite dan memublikasikan hasil statis dari `public/.vercel-preview/dist/`. Untuk domain produksi, gunakan deployment **Production** dari branch `main` yang memuat konfigurasi tersebut.
 
-Pratinjau memuat ringkasan produk dan modul. Untuk menjalankan pemeriksaan, pengelolaan akun, dan pelaporan, ikuti [panduan instalasi intranet](docs/INSTALLATION.md).
+Pratinjau menyediakan pencarian nama atau username melalui tautan ke sumber publik. Kueri dikirim ke sumber ketika pengguna membuka tautan. Ringkasan produk dan modul tersedia di bagian bawah halaman. Untuk menjalankan pemeriksaan, pengelolaan akun, dan pelaporan, ikuti [panduan instalasi intranet](docs/INSTALLATION.md).
 
 ## Verifikasi
 

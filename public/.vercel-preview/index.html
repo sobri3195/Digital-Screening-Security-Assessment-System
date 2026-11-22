@@ -3,10 +3,11 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Pratinjau publik MARGONO, sistem pemeriksaan keamanan digital dan pelaporan aset institusi.">
-  <title>MARGONO · Pratinjau Publik</title>
+  <meta name="description" content="Pencarian sumber publik MARGONO untuk memeriksa nama dan username di web, GitHub, dan Wikipedia.">
+  <title>MARGONO · Pencarian Sumber Publik</title>
   <link rel="icon" href="./assets/margono.png" type="image/png">
   <link rel="stylesheet" href="./assets/preview.css">
+  <script type="module" src="./search.js"></script>
 </head>
 <body id="atas">
   <a class="skip-link" href="#konten">Lewati ke konten</a>
@@ -17,6 +18,7 @@
         <strong>MARGONO</strong>
       </a>
       <nav aria-label="Navigasi utama">
+        <a href="#pencarian">Pencarian</a>
         <a href="#modul">Modul</a>
         <a href="#akses">Akses</a>
       </nav>
@@ -24,20 +26,38 @@
   </header>
 
   <main id="konten" tabindex="-1">
-    <section class="hero shell" aria-labelledby="judul">
+    <section class="hero shell" id="pencarian" aria-labelledby="judul">
       <div class="hero-copy">
-        <p class="eyebrow">Pratinjau publik</p>
-        <h1 id="judul">MARGONO</h1>
-        <p class="intro">
-          <span lang="en"><strong>Monitoring, Asset Risk, Governance, Observation, Notifications, and Operations</strong><br>LGBT Analysis</span><br>
-          Sistem pemeriksaan keamanan digital dan pelaporan aset institusi.
-        </p>
-        <a class="button" href="#modul">Lihat modul <span aria-hidden="true">↓</span></a>
+        <h1 id="judul">Pencarian sumber publik</h1>
+        <p class="intro">Masukkan nama, username, atau organisasi untuk menyiapkan tautan pencarian.</p>
+
+        <form class="search-form" id="public-search" autocomplete="off" aria-describedby="search-help">
+          <label for="search-query">Nama atau username</label>
+          <div class="search-controls">
+            <input id="search-query" type="search" maxlength="100" placeholder="Contoh: OpenStreetMap" required>
+            <button class="button" type="submit">Siapkan pencarian</button>
+          </div>
+          <p id="search-help">Sumber menerima kueri saat Anda membuka tautannya.</p>
+        </form>
+        <noscript><p>Aktifkan JavaScript untuk menyiapkan tautan pencarian.</p></noscript>
+
+        <section class="search-results" id="public-results" aria-labelledby="results-title" hidden>
+          <h2 id="results-title" tabindex="-1">Sumber untuk diperiksa</h2>
+          <p id="results-query"></p>
+          <ul class="source-list">
+            <li><a id="source-web" target="_blank" rel="noopener noreferrer"><strong>DuckDuckGo</strong><span>Pencarian web <span class="external-icon" aria-hidden="true"></span></span></a></li>
+            <li><a id="source-github" target="_blank" rel="noopener noreferrer"><strong>GitHub</strong><span>Akun dan organisasi <span class="external-icon" aria-hidden="true"></span></span></a></li>
+            <li><a id="source-wikipedia" target="_blank" rel="noopener noreferrer"><strong>Wikipedia</strong><span>Artikel rujukan <span class="external-icon" aria-hidden="true"></span></span></a></li>
+          </ul>
+        </section>
       </div>
-      <figure class="hero-figure">
-        <img src="./assets/workbench.webp" width="960" height="720" alt="">
-        <figcaption>Ilustrasi perangkat pemeriksaan</figcaption>
-      </figure>
+      <div class="hero-context">
+        <figure class="hero-figure">
+          <img src="./assets/workbench.webp" width="960" height="720" alt="">
+          <figcaption>Ilustrasi perangkat pemeriksaan</figcaption>
+        </figure>
+        <p class="product-caption" lang="en">Monitoring, Asset Risk, Governance, Observation, Notifications, and Operations<br>LGBT Analysis</p>
+      </div>
     </section>
 
     <section class="module-section" id="modul" aria-labelledby="judul-modul">
