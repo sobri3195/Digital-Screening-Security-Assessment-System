@@ -7,7 +7,7 @@ use Sentinel\Services\Branding;
         <span class="insignia"><i class="bi bi-shield-lock" aria-hidden="true"></i></span>
         <p class="identity-line">PUSAT KESEHATAN TNI ANGKATAN UDARA</p>
         <h1><strong><?= escape(Branding::NAME) ?></strong></h1>
-        <p><?= escape(Branding::EXPANSION) ?></p>
+        <p lang="en"><?= escape(Branding::EXPANSION) ?><br><?= escape(Branding::TAGLINE) ?></p>
         <button type="button" class="icon-button theme-toggle" title="Ubah tema" aria-label="Ubah tema"><i class="bi bi-circle-half"></i></button>
     </div>
     <form method="post" class="panel login-form">

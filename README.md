@@ -1,6 +1,8 @@
 # MARGONO
 
-**Manajemen Aset, Risiko, Gawai, Observasi, dan Notifikasi Operasional** adalah sistem penilaian keamanan digital untuk administrasi pemeriksaan teknis aset institusi, edukasi, dokumentasi insiden, dan pelaporan internal. Aplikasi menggunakan PHP Native 8.3+, MariaDB atau MySQL, dan aset frontend lokal. Zona waktu aplikasi adalah Asia/Jakarta.
+**Monitoring, Asset Risk, Governance, Observation, Notifications, and Operations**
+
+MARGONO adalah sistem penilaian keamanan digital untuk administrasi pemeriksaan teknis aset institusi, edukasi, dokumentasi insiden, dan pelaporan internal. Aplikasi menggunakan PHP Native 8.3+, MariaDB atau MySQL, dan aset frontend lokal. Zona waktu aplikasi adalah Asia/Jakarta.
 
 ## Mulai
 
